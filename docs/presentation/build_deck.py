@@ -848,11 +848,11 @@ def slide_capabilities(prs, n):
          "从“哪个服务出错”到“哪个函数慢”", BLUE),
         ("日志治理与聚类", "错误全留、INFO 采样\n模板聚合、指纹下钻",
          "日志量下降，错误证据不丢", TEAL),
-        ("指标与服务拓扑", "服务 QPS / 错误率 / P95\n强边与弱边分离",
+        ("服务性能与拨测", "服务 QPS / 错误率 / P95\n强边与弱边分离",
          "谁调用谁，影响面一眼可见", AMBER),
         ("崩溃与性能剖析", "SIGSEGV 捕获、符号化\n折叠栈火焰图",
          "崩溃可读，热点可定位", RED),
-        ("SLO 与事件中心", "可用性 / 延迟 SLI\nopen → ack → resolved",
+        ("SLO / 事件 / 异常", "SLI、错误预算、事件闭环\n异常聚合与指派",
          "目标量化，问题闭环", RGBColor(0x6D, 0x5B, 0xE7)),
         ("诊断与证据包", "一键诊断、巡检\n脱敏导出、SHA-256",
          "现场复盘有共同事实", RGBColor(0x0E, 0x74, 0x90)),
@@ -1080,7 +1080,7 @@ def slide_innovation(prs, n):
         ("05", "对生产零影响",
          "fail-open、热路径无锁、\n崩溃处理 async-signal-safe。"),
         ("06", "全链路可验证",
-         "137 个测试、\n17 类端到端场景。"),
+         "149 个测试、\n21 类端到端场景。"),
     ]
     for i, (num, title, body) in enumerate(items):
         x = LEFT + (i % 3) * 4.05
@@ -1267,6 +1267,59 @@ def slide_clients(prs, n):
         "浏览器只上报给 BFF，不直接持有中心写 token。")
 
 
+def slide_client_detail(prs, n):
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    add_bg(slide, BG)
+    add_title(slide, "客户端链路拆解：一次 RPC，两侧各做什么",
+              "Python 负责起点与传播，C++ 负责业务上下文与后续链路")
+    steps = [
+        ("1", "Python", "生成 trace_id / span_id\n创建 client span", TEAL),
+        ("2", "Python", "注入 traceparent\nx-request-id / x-task-id", TEAL),
+        ("3", "C++", "解析 traceparent\n恢复父 SpanContext", AMBER),
+        ("4", "C++", "创建 server span\n日志自动带 trace/request", AMBER),
+        ("5", "C++", "业务处理 → span_end\nerror_code → SDK → Agent → Server", AMBER),
+        ("6", "Python", "上报 client span\n中心按 parent 拼父子关系", TEAL),
+    ]
+    for i, (num, actor, text, color) in enumerate(steps):
+        y = 1.42 + i * 0.82
+        add_rect(slide, LEFT, y, 0.45, 0.45, color,
+                 shape=MSO_SHAPE.ROUNDED_RECTANGLE, radius=0.25)
+        add_text(slide, LEFT, y + 0.1, 0.45, 0.26, num, size=10, bold=True,
+                 color=WHITE, align=PP_ALIGN.CENTER)
+        add_text(slide, LEFT + 0.62, y, 0.9, 0.25, actor, size=10, bold=True,
+                 color=color)
+        add_text(slide, LEFT + 1.55, y - 0.02, 4.3, 0.65, text, size=10.5,
+                 color=INK, spacing=1.15)
+
+    add_text(slide, 6.55, 1.42, 5.8, 0.3, "Python 侧", size=11, bold=True,
+             color=TEAL)
+    add_code(slide, 6.55, 1.75, 5.75, 1.5,
+             "with client.span(\"GET /orders\", request_id=\"REQ-1\"):\n"
+             "    client.request(\"GET\", backend + \"/api/orders\")\n"
+             "# auto: traceparent + client span + duration/status")
+    add_text(slide, 6.55, 3.45, 5.8, 0.3, "C++ 后端侧", size=11, bold=True,
+             color=AMBER)
+    add_code(slide, 6.55, 3.78, 5.75, 1.75,
+             "vmon::SpanContext parent;\n"
+             "if (vmon::context_from_traceparent(h, &parent))\n"
+             "  auto span = vmon::create_span_with_parent(\n"
+             "      parent, \"HTTP/Handle\", __FILE__, __LINE__);\n"
+             "VMON_INFO(\"request_id=%s\", request_id);")
+    add_rect(slide, 6.55, 5.75, 5.75, 0.65, SOFT_BLUE,
+             shape=MSO_SHAPE.ROUNDED_RECTANGLE, radius=0.1)
+    add_text(slide, 6.7, 5.85, 5.45, 0.45,
+             "结果：前端/脚本的慢调用也能落到具体 C++ 方法，\n"
+             "错误码沿同一条 trace 回传。",
+             size=10, bold=True, color=BLUE_DARK, spacing=1.2)
+    add_text(slide, LEFT, 6.45, 5.7, 0.3,
+             "关键：client span 先结束，server span 是它的子节点。",
+             size=9.5, color=MUTED)
+    add_footer(slide, n)
+    slide.notes_slide.notes_text_frame.text = (
+        "这一页回答“具体干了啥”：Python 生成上下文并注入，C++ 解析后创建子 span，"
+        "业务日志自动继承上下文；两侧各上报自己的 span，中心按 parent 拼起来。")
+
+
 def slide_adoption(prs, n):
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     add_bg(slide, BG)
@@ -1362,12 +1415,13 @@ def slide_roadmap(prs, n):
         "一键诊断 / 巡检、脱敏证据包",
         "Python / Web 客户端 trace 接入",
         "入库脱敏、事件 Webhook 通知",
-        "137 个测试 + 17 类端到端场景",
+        "异常追踪、静默、拨测、仪表板快照",
+        "149 个测试 + 21 类端到端场景",
     ]
     add_bullets(slide, LEFT + 0.3, 2.18, 5.35, 3.3, done, size=11.5,
                 gap=0.14)
     add_text(slide, LEFT + 0.3, 5.62, 5.3, 0.3,
-             "验收：ctest 全绿 + Web UI 14 个视图回归", size=10,
+             "验收：ctest 全绿 + Web UI 16 个视图回归", size=10,
              bold=True, color=TEAL)
     add_rect(slide, 6.95, 1.55, 5.6, 4.75, WHITE, LINE,
              MSO_SHAPE.ROUNDED_RECTANGLE, 0.05)
@@ -1376,7 +1430,7 @@ def slide_roadmap(prs, n):
     todo = [
         "邮件 / syslog 通知（Webhook 已支持）",
         "gRPC streaming / 异步拦截与 eBPF 弱边",
-        "常驻 CPU / 内存 / 锁剖析",
+        "内存 / 锁 / IO 剖析",
         "BFF 聚合前端事件 / OTLP 接入",
         "长期存储（VictoriaMetrics / Parquet）",
         "Linux aarch64 / gcc 7.3 实机验证",
@@ -1523,10 +1577,11 @@ def main():
     slide_scenarios(prs, 18)
     slide_quick_diagnosis(prs, 19)
     slide_clients(prs, 20)
-    slide_adoption(prs, 21)
-    slide_compare(prs, 22)
-    slide_roadmap(prs, 23)
-    slide_end(prs, 24)
+    slide_client_detail(prs, 21)
+    slide_adoption(prs, 22)
+    slide_compare(prs, 23)
+    slide_roadmap(prs, 24)
+    slide_end(prs, 25)
 
     out_dir = os.path.dirname(os.path.abspath(__file__))
     out = os.path.join(out_dir, "vmon-intro.pptx")

@@ -18,9 +18,11 @@
       <button data-view="services">服务</button>
       <button data-view="nodes">节点</button>
       <button data-view="events">事件</button>
+      <button data-view="issues">异常</button>
       <button data-view="crashes">崩溃</button>
       <button data-view="profiles">剖析</button>
       <button data-view="metrics">指标</button>
+      <button data-view="dashboards">仪表板</button>
       <button data-view="slos">SLO</button>
       <button data-view="diagnose">诊断</button>
       <button data-view="rules">规则</button>
@@ -52,6 +54,10 @@
         <div class="panel">
           <h3>最近事件</h3>
           <div id="overview-events"></div>
+        </div>
+        <div class="panel">
+          <h3>可用性拨测</h3>
+          <div id="overview-probes"><p class="muted">暂无拨测任务</p></div>
         </div>
         <div class="panel">
           <h3>一键巡检</h3>
@@ -174,6 +180,29 @@
       <div class="panel" id="events-result"></div>
     </section>
 
+    <!-- 异常追踪 -->
+    <section id="view-issues" class="view">
+      <div class="toolbar">
+        <h2>异常追踪</h2>
+        <select id="issue-status">
+          <option value="">全部状态</option>
+          <option value="open">open</option>
+          <option value="ack">ack</option>
+          <option value="resolved">resolved</option>
+        </select>
+        <input id="issue-service" placeholder="服务（可选）" />
+        <select id="issue-level">
+          <option value="">全部级别</option>
+          <option value="error">error</option>
+          <option value="fatal">fatal</option>
+          <option value="critical">critical</option>
+          <option value="warn">warn</option>
+        </select>
+        <button id="issues-refresh">刷新</button>
+      </div>
+      <div class="panel" id="issues-result"></div>
+    </section>
+
     <!-- 崩溃 -->
     <section id="view-crashes" class="view">
       <div class="toolbar"><h2>崩溃与符号化</h2><button id="crashes-refresh">刷新</button></div>
@@ -197,6 +226,33 @@
         <button id="metrics-search">查询</button>
       </div>
       <div class="panel" id="metrics-result"></div>
+    </section>
+
+    <!-- 仪表板 -->
+    <section id="view-dashboards" class="view">
+      <div class="toolbar">
+        <h2>数据洞察 / 仪表板</h2>
+        <button id="dashboards-refresh">刷新</button>
+      </div>
+      <div class="panel">
+        <h3>新增 / 更新仪表板</h3>
+        <div class="form-grid">
+          <input id="dashboard-id" placeholder="id（可选）" />
+          <input id="dashboard-name" placeholder="名称" />
+          <input id="dashboard-desc" placeholder="说明（可选）" />
+          <button id="dashboard-save">保存</button>
+        </div>
+        <textarea id="dashboard-widgets" rows="6" class="code"
+          placeholder='[{"type":"metric","title":"主机负载","metric":"host.load1"},
+{"type":"traces","title":"服务错误率","service":"order"},
+{"type":"logs","title":"错误模板","limit":5}]'></textarea>
+        <span id="dashboard-msg" class="muted"></span>
+      </div>
+      <div id="dashboards-result"></div>
+      <div class="panel">
+        <h3>快照</h3>
+        <div id="snapshots-result"></div>
+      </div>
     </section>
 
     <!-- SLO -->
@@ -319,6 +375,19 @@
           placeholder='{"id":"my-rule","type":"error_log","threshold":10,"window_ns":60000000000,"severity":"warning"}'></textarea>
         <button id="rule-save">保存规则</button>
         <span id="rule-msg" class="muted"></span>
+      </div>
+      <div class="panel">
+        <h3>告警静默</h3>
+        <div class="form-grid">
+          <input id="silence-name" placeholder="静默名称" />
+          <input id="silence-rule" placeholder="规则 id（可选）" />
+          <input id="silence-service" placeholder="服务（可选）" />
+          <input id="silence-minutes" type="number" placeholder="持续分钟（默认 60）" />
+          <input id="silence-reason" placeholder="原因（可选）" />
+          <button id="silence-save">创建静默</button>
+        </div>
+        <span id="silence-msg" class="muted"></span>
+        <div id="silences-result"></div>
       </div>
     </section>
   </main>

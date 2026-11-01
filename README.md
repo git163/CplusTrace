@@ -50,9 +50,9 @@ C++ 系统（10–50 节点、50–200 进程），把「人工翻多机多进�
 |---|---|---|
 | M1 框架底座 | SDK 初始化/配置/日志/span/心跳/控制通道/发送线程；每线程 SPSC 环；traceparent 编解码；Agent UDS 接入、分段 WAL、上传、进程与主机扫描、文件日志采集；Server 接入鉴权、资产目录、查询 API、Web UI；`vmon_attach(target)` 接入入口 | gRPC 拦截器仅有传播层（需在目标工程按实际 gRPC 版本接入）；无平台注册中心 API 对接；trace 存内存，未落 Parquet；未提供日志宏兼容层 |
 | M2 日志治理 | 模板归一化、指纹、关键信息提取、INFO 采样、同指纹去重、噪声模板、错误全保留、动态日志级别（TTL）、日志聚类、请求级排障视图 | 线程池/队列/回调 drop-in 包装器与 `causality.id` 自动传递未实现；时序异常识别仅提供基础诊断 |
-| M3 全链路 | trace 树、关键路径、服务拓扑与强弱边、按 request/trace/task 查询、跨进程链路与进程内 span 融合、Socket 24 字节 trace 头编解码 | gRPC streaming/异步拦截、具体 Socket 协议接入、eBPF 弱边、尾部采样未实现；边置信度目前由调用方属性标记 |
+| M3 全链路 | trace 树、关键路径、服务拓扑与强弱边、按 request/trace/task 查询、跨进程链路与进程内 span 融合、Socket 24 字节 trace 头编解码；gRPC streaming 辅助器与 eBPF 弱边接口（编译开关） | 具体 gRPC/异步 interceptor、Socket 协议、eBPF collector 需目标环境接入；尾部采样未实现 |
 | M4 崩溃诊断 | SDK async-signal-safe 崩溃报告、Agent 收集上传、指纹聚合、`addr2line`/`llvm-symbolizer` 离线符号化接口、`core_pattern` helper、事件中心联动 | 未自动关联发布记录；未解析完整 core/minidump |
-| M5 性能剖析 | 折叠栈导入/聚合、Top self/inclusive、火焰图 JSON、证据包集成、按需诊断接口 | 未实现进程内 `SIGPROF` 采样、`perf` 采集、内存/锁/IO 剖析 |
+| M5 性能剖析 | 折叠栈导入/聚合、Top self/inclusive、火焰图 JSON、证据包集成、按需诊断接口；可选 `SIGPROF` 常驻采样（编译开关） | `perf` 采集、内存/锁/IO 剖析未实现；SIGPROF 仅诊断版 |
 | M6 告警与内部 AI | 规则引擎（心跳缺失、错误突增、慢 trace、指标阈值）、事件中心、静默/冷却、一键巡检、诊断编排、证据包（脱敏 + SHA-256 清单）、MCP 只读工具、systemd/tmpfiles | 通知渠道（Webhook/邮件/syslog）未实现；无 72 小时长稳与混沌脚本 |
 | 本轮补齐 | 主机/进程指标、SLO 与错误预算、事件 resolve/筛选、服务拓扑、Trace 瀑布图、日志时间窗/node/task_id、规则表单、Trace 统一搜索、Python/Web 客户端接入、常用场景 demo、模块/类/时序/原理图、Web UI 全量回归 | 通知渠道、常驻 CPU 采样、eBPF、gRPC streaming 仍为非目标/二期 |
 
@@ -67,8 +67,12 @@ C++ 系统（10–50 节点、50–200 进程），把「人工翻多机多进�
 - Trace 统一搜索 `q`（trace_id / request_id / task_id / 服务 / Span，忽略大小写）；
 - Python / Web 客户端 trace 接入与示例 C++ HTTP 后端；
 - 入库前 Pipeline 脱敏（password/token/email/IP/手机号）与事件 Webhook 通知；
+- 异常追踪 Issue（聚合、指派、ack/resolve）与告警静默/事件分组；
+- HTTP 可用性拨测（up/duration/status 指标 + 总览展示）；
+- 仪表板与只读快照（指标/链路/日志 widget）；
+- 可选 CPU SIGPROF 采样（编译选项 `VMON_ENABLE_CPU_PROFILER`）；
 - 常用场景 demo（RPC/慢调用/错误/日志风暴/SLO/崩溃）与快速诊断手册；
-- Web UI 14 个视图完成真实浏览器回归。
+- Web UI 16 个视图完成真实浏览器回归。
 
 > 结论：当前版本可作为「可运行、可验证的 M1–M6 纵切」：端到端链路、日志治理、
 > 链路还原、崩溃、剖析数据面、告警、证据包与 MCP 都已打通；上表「暂未覆盖」项
@@ -119,11 +123,12 @@ ctest --test-dir build --output-on-failure
 | `vmon_web_client` | 浏览器 traceparent、fetch 注入、采样与上报回调 |
 | `vmon_e2e` | 真实 Server + Agent + SDK 业务进程 + HTTP 后端的端到端链路 |
 
-`vmon_e2e` 覆盖 17 类场景：HTTP 表面与鉴权、trace/日志多维查询（含统一搜索 `q`）、
+`vmon_e2e` 覆盖 21 类场景：HTTP 表面与鉴权、trace/日志多维查询（含统一搜索 `q`）、
 动态日志级别真正生效、MCP 工具与错误码、跨进程父子 Span 与拓扑边、Python 客户端
-调用 C++ 后端（同一 trace / 错误码）、事件生命周期、剖析、诊断/巡检、指标（主机 +
-进程标签回归）、证据包脱敏与校验和、SLO、规则/SLO 重启持久化、SIGSEGV 捕获上传、
-中心停止期间 WAL 缓存与恢复补传。
+调用 C++ 后端（同一 trace / 错误码）、事件生命周期、异常追踪 Issue、告警静默、
+HTTP 可用性拨测、仪表板与快照、剖析、诊断/巡检、指标（主机 + 进程标签回归）、
+证据包脱敏与校验和、SLO、规则/SLO 重启持久化、SIGSEGV 捕获上传、中心停止期间
+WAL 缓存与恢复补传。
 未找到 Python3 时该测试自动跳过。
 
 生成源码发布包（约 400KB，不含三方依赖）：
@@ -284,7 +289,11 @@ client.close()
 | `GET /api/metrics?name=` | 指标序列查询 |
 | `GET /api/topology` | 服务拓扑与强弱边 |
 | `GET /api/services` / `GET /api/nodes` | 服务/实例、节点/进程快照 |
-| `GET /api/events` / `POST /api/events/{id}/ack` / `resolve` | 事件筛选与生命周期 |
+| `GET /api/events` / `POST /api/events/{id}/ack` / `resolve` | 事件筛选、生命周期与同指纹分组 |
+| `GET /api/issues` / `POST /api/issues/{id}` | 异常追踪（聚合/指派/ack/resolve） |
+| `GET/POST/DELETE /api/silences` | 告警静默 |
+| `GET /api/probes` | 可用性拨测汇总 |
+| `GET/POST/DELETE /api/dashboards` / `GET /api/snapshots` | 仪表板与只读快照 |
 | `GET/POST/DELETE /api/slos` | SLO 定义与实时状态 |
 | `GET /api/crashes` / `POST /api/crashes/symbolize` | 崩溃列表 / 离线符号化 |
 | `GET /api/profiles` | 剖析记录与火焰图 |
@@ -318,6 +327,9 @@ CplusTrace/
 ## 7. 平台与安全约束
 
 - 统一 C++14，不使用 C++17/20 特性；避免 gcc 7.3 已知弱点；
+- 常驻 CPU SIGPROF、eBPF、gRPC streaming 均为**默认关闭的编译选项**：
+  `VMON_ENABLE_CPU_PROFILER` / `VMON_ENABLE_EBPF` / `VMON_ENABLE_GRPC`，
+  诊断版按需打开；
 - 目标 Linux x86_64 与 aarch64；macOS arm64 为开发验证环境；
 - 纯内网、离线部署，不依赖 Grafana / Prometheus / ELK；
 - 维测组件独立进程，有内存/CPU/磁盘上限，不影响业务功能与行为；

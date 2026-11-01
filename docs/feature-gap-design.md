@@ -25,7 +25,7 @@ M1–M6 已经打通「SDK → Agent → Server → Web/CLI/MCP」的纵向链�
 ### 1.1 验收口径
 
 - `ctest` 全绿，E2E 场景覆盖下表第 8 节；
-- Web UI 14 个页面在真实浏览器（Playwright MCP）中可操作，关键按钮有结果；
+- Web UI 16 个页面在真实浏览器（Playwright MCP）中可操作，关键按钮有结果；
 - `docs/user-guide.md` 能让使用者在 10 分钟内启动并查询第一条链路；
 - `docs/competitive-analysis.md` 明确「已实现 / 本轮补齐 / 非目标」；
 - 新增能力默认不改变现有 API 语义，不影响 SDK 业务热路径。

@@ -11,6 +11,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -63,6 +64,13 @@ class RuleEngine {
   // 默认规则：心跳缺失 + 错误日志突增 + 慢调用。
   static std::vector<Rule> default_rules();
 
+  // 告警静默匹配：返回 true 时本次不产生事件。
+  typedef std::function<bool(const Rule&, const std::string& service,
+                             const std::string& node,
+                             const std::string& severity, uint64_t now_ns)>
+      SilenceMatcher;
+  void set_silence_matcher(SilenceMatcher matcher);
+
   // 生成一个稳定的告警 ID（同一规则 + 对象 + 时间窗内不重复）。
   static std::string make_event_id(const std::string& rule_id,
                                    const std::string& key,
@@ -85,6 +93,7 @@ class RuleEngine {
   std::vector<Rule> rules_;
   std::unordered_map<std::string, uint64_t> last_fire_ns_;
   std::unordered_map<std::string, WindowCounter> counters_;
+  SilenceMatcher silence_matcher_;
 };
 
 }  // namespace server

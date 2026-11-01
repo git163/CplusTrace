@@ -15,6 +15,7 @@
 
 import argparse
 import hashlib
+import http.server
 import json
 import os
 import queue
@@ -197,6 +198,36 @@ def file_sha256(path):
     return digest.hexdigest()
 
 
+class ProbeSink:
+    """本地 HTTP 目标，用于验证 Agent 可用性拨测。"""
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == "/health":
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain")
+                self.end_headers()
+                self.wfile.write(b"ok")
+            else:
+                self.send_response(404)
+                self.end_headers()
+
+        def log_message(self, *_args):
+            pass
+
+    def __init__(self):
+        self.server = http.server.HTTPServer(("127.0.0.1", 0), self.Handler)
+        self.port = self.server.server_address[1]
+        self.url = "http://127.0.0.1:%d/health" % self.port
+        self.thread = threading.Thread(target=self.server.serve_forever,
+                                       daemon=True)
+        self.thread.start()
+
+    def stop(self):
+        self.server.shutdown()
+        self.server.server_close()
+
+
 class Harness:
     def __init__(self, args):
         self.args = args
@@ -218,6 +249,7 @@ class Harness:
         self.backend_port = free_port()
         self.backend_url = "http://127.0.0.1:%d" % self.backend_port
         self.backend_log = os.path.join(self.work_dir, "backend.log")
+        self.probe_sink = ProbeSink()
         for path in (self.control_dir, self.crash_dir, self.agent_state,
                      self.server_state):
             os.makedirs(path, exist_ok=True)
@@ -293,6 +325,8 @@ class Harness:
             "--upload-interval-ms", "100",
             "--process-filter", "vmon_e2e_client",
             "--process-metrics",
+            "--probe", "e2e-probe=%s;interval_ms=300;timeout_ms=1000"
+                       % self.probe_sink.url,
             "--wal-segment-bytes", "65536",
         ]
         self.agent = subprocess.Popen(
@@ -408,6 +442,7 @@ class Harness:
         self.stop_backend()
         self.stop_agent()
         self.stop_server()
+        self.probe_sink.stop()
         for handle in (self._server_log_handle, self._agent_log_handle,
                        self._backend_log_handle):
             if handle:
@@ -632,6 +667,29 @@ def verify_metrics(harness):
     log("PASS 指标: host.* 与 process.rss_bytes 均可按名字查询")
 
 
+def verify_probes(harness):
+    """Agent HTTP 拨测：probe.up / duration / status 指标与汇总接口。"""
+    points = wait_for(
+        lambda: harness.api.ok("GET", "/api/metrics?name=probe.up&limit=50")
+        or None, 25, "Agent 上报 probe.up 指标")
+    match = [p for p in points if p.get("labels", {}).get("probe") == "e2e-probe"]
+    if not match:
+        raise E2EFailure("拨测指标缺少 e2e-probe 标签: %r" % points[:3])
+    if match[-1].get("value", 0) < 1:
+        raise E2EFailure("拨测目标应为 UP: %r" % match[-1])
+    for name in ("probe.duration_ms", "probe.status_code"):
+        if not harness.api.ok("GET", "/api/metrics?name=%s&limit=10" % name):
+            raise E2EFailure("缺少拨测指标 %s" % name)
+
+    summary = wait_for(
+        lambda: harness.api.ok("GET", "/api/probes").get("probes") or None,
+        10, "拨测汇总接口")
+    target = [item for item in summary if item.get("name") == "e2e-probe"]
+    if not target or not target[0].get("up"):
+        raise E2EFailure("拨测汇总不是 UP: %r" % summary)
+    log("PASS 可用性拨测: probe=e2e-probe url=%s" % target[0].get("url"))
+
+
 def verify_cross_process(harness):
     """父进程导出上下文，子进程以 create_span_with_parent 续接同一 trace。"""
     parent_request = "e2e-parent-" + uuid.uuid4().hex[:10]
@@ -769,6 +827,86 @@ def verify_python_rpc(harness):
         raise E2EFailure("首个错误码不正确: %r" % error_detail.get("first_error"))
     log("PASS Python RPC: trace=%s Python 与 C++ 后端同一链路，错误码=%s" % (
         root.get("trace_id"), error_code))
+
+
+def verify_issues(harness):
+    """错误日志/崩溃聚合成 Issue，并支持 ack / 指派 / resolve。"""
+    def ready():
+        data = harness.api.ok("GET", "/api/issues?limit=200")
+        issues = data.get("issues", [])
+        if not issues:
+            return None
+        return data
+
+    data = wait_for(ready, 25, "Issue 聚合")
+    issues = data["issues"]
+    if not any(item.get("kind") == "log" for item in issues):
+        raise E2EFailure("Issue 中没有日志异常: %r" % issues[:3])
+    issue = issues[0]
+    harness.api.ok("POST", "/api/issues/" + urllib.parse.quote(issue["id"]),
+                   {"status": "ack", "assignee": "e2e-user"})
+    acked = harness.api.ok("GET", "/api/issues?status=ack&limit=200")
+    found = [item for item in acked["issues"]
+             if item["id"] == issue["id"] and item.get("assignee") == "e2e-user"]
+    if not found:
+        raise E2EFailure("Issue ack/指派未生效: %r" % acked["issues"][:3])
+    harness.api.ok("POST", "/api/issues/" + urllib.parse.quote(issue["id"]),
+                   {"status": "resolved"})
+    resolved = harness.api.ok("GET", "/api/issues?status=resolved&limit=200")
+    if not any(item["id"] == issue["id"] for item in resolved["issues"]):
+        raise E2EFailure("Issue resolve 未生效")
+    log("PASS 异常追踪: Issue=%s ack→assign→resolve" % issue["id"])
+
+
+def verify_silences(harness):
+    """静默创建/查询/删除；规则事件抑制由单测覆盖。"""
+    body = {
+        "name": "e2e-silence",
+        "service": "e2e-silence-service",
+        "duration_minutes": 5,
+        "reason": "e2e",
+    }
+    created = harness.api.ok("POST", "/api/silences", body)
+    silence = created["silence"]
+    listed = harness.api.ok("GET", "/api/silences")
+    if not any(item["id"] == silence["id"] for item in listed["silences"]):
+        raise E2EFailure("静默未出现在列表")
+    harness.api.ok("DELETE", "/api/silences/" + urllib.parse.quote(silence["id"]))
+    status, _ = harness.api.request(
+        "DELETE", "/api/silences/" + urllib.parse.quote(silence["id"]))
+    if status != 404:
+        raise E2EFailure("重复删除静默应返回 404，实际 %s" % status)
+    log("PASS 告警静默: 创建/列表/删除与 404")
+
+
+def verify_dashboards(harness):
+    """仪表板 CRUD、数据计算与快照。"""
+    dashboard = {
+        "id": "e2e-dashboard",
+        "name": "E2E 看板",
+        "description": "e2e",
+        "widgets": [
+            {"type": "metric", "title": "负载", "metric": "host.load1"},
+            {"type": "traces", "title": "链路", "limit": 3},
+            {"type": "text", "title": "说明", "text": "e2e"},
+        ],
+    }
+    harness.api.ok("POST", "/api/dashboards", dashboard)
+    data = harness.api.ok("GET", "/api/dashboards/e2e-dashboard")
+    if len(data.get("widgets", [])) != 3:
+        raise E2EFailure("仪表板 widget 数量不正确: %r" % data)
+    if data["widgets"][0].get("count", 0) < 1:
+        raise E2EFailure("指标 widget 没有数据: %r" % data["widgets"][0])
+    snapshot = harness.api.ok("POST", "/api/dashboards/e2e-dashboard/snapshot")
+    snapshot_id = snapshot["snapshot"]["id"]
+    loaded = harness.api.ok("GET", "/api/snapshots/" + snapshot_id)
+    if len(loaded["data"].get("widgets", [])) != 3:
+        raise E2EFailure("快照数据不完整: %r" % loaded)
+    harness.api.ok("DELETE", "/api/dashboards/e2e-dashboard")
+    status, _ = harness.api.request("GET", "/api/dashboards/e2e-dashboard")
+    if status != 404:
+        raise E2EFailure("删除仪表板后应返回 404，实际 %s" % status)
+    log("PASS 仪表板: 3 个 widget、指标数据、快照与删除")
 
 
 def verify_events_lifecycle(harness):
@@ -1236,11 +1374,15 @@ def main():
         verify_queries(harness, request_id, context, pid)
         verify_http_surface(harness)
         verify_metrics(harness)
+        verify_probes(harness)
         verify_dynamic_level(harness, request_id, pid)
         verify_mcp(harness, request_id)
         verify_cross_process(harness)
         verify_python_rpc(harness)
         verify_events_lifecycle(harness)
+        verify_issues(harness)
+        verify_silences(harness)
+        verify_dashboards(harness)
         verify_profiles(harness)
         verify_diagnose(harness, request_id)
         verify_evidence(harness, request_id)

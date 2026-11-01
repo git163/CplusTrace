@@ -26,7 +26,7 @@ ctest --test-dir build --output-on-failure
 最近一次结果（加入 Python/Web 客户端与 HTTP 后端后）：
 
 ```
-1/6 Test #1: vmon_e2e ............   Passed  19.11 sec
+1/6 Test #1: vmon_e2e ............   Passed  19.45 sec
 2/6 Test #2: vmon_python_client ...   Passed   0.58 sec
 3/6 Test #3: vmon_web_client ......   Passed   0.05 sec
 4/6 Test #4: vmon_sdk_tests .......   Passed   0.00 sec
@@ -36,10 +36,10 @@ ctest --test-dir build --output-on-failure
 100% tests passed, 0 tests failed out of 6
 ```
 
-测试数量：C++ 单元 123 个（SDK 18、Server 69、Agent 36），
-Python 客户端 9 个，Web 客户端 5 个，共 137 个测试；
-端到端场景 17 类。
-Web UI 14 个视图的真实浏览器回归记录见 [ui-test-report.md](ui-test-report.md)。
+测试数量：C++ 单元 135 个（SDK 19、Server 77、Agent 39），
+Python 客户端 9 个，Web 客户端 5 个，共 149 个测试；
+端到端场景 21 类。
+Web UI 16 个视图的真实浏览器回归记录见 [ui-test-report.md](ui-test-report.md)。
 
 ## 2. 端到端覆盖
 
@@ -65,6 +65,10 @@ Web UI 14 个视图的真实浏览器回归记录见 [ui-test-report.md](ui-test
 | 15 | 规则持久化 | 创建指标规则与 SLO；重启 Server 后仍存在；空数据 SLO 为 `unknown`；删除生效 |
 | 16 | 崩溃 | 业务进程 `SIGSEGV` 后退出码匹配；`/api/crashes?service=e2e-crash` 可查到；事件中心有 crash 事件 |
 | 17 | 断网续传 | 停止中心 → 业务进程继续上报 → 重启中心 → 补传的 trace 完整（span 数 ≥ 3） |
+| 18 | 异常追踪 | 错误日志聚类派生成 Issue；ack → 指派 → resolved；状态筛选生效 |
+| 19 | 告警静默 | 创建/列表/删除静默；重复删除 404（规则抑制由单测覆盖） |
+| 20 | 可用性拨测 | Agent 拨测本地 HTTP 目标，`probe.up/duration/status` 指标与 `/api/probes` 均为 UP |
+| 21 | 仪表板/快照 | 指标/链路/文本三类 widget 计算正确；生成快照并可读取；删除后 404 |
 
 运行方式（也可直接 `ctest -R vmon_e2e`）：
 
@@ -128,7 +132,7 @@ python3 examples/scenarios/demo.py --scenario all
 2. Socket 仅提供 24 字节 trace 头编解码（`adapters/ipc/socket_header.h`），
    尚未接入具体 Socket 协议、连接级关联；eBPF 弱边、gRPC streaming/异步、尾部采样未实现。
 3. 线程池/队列/回调 drop-in 包装器与 `causality.id` 自动传递未实现。
-4. 进程内 CPU 采样（`SIGPROF`）、perf、内存/锁/IO 剖析未实现；当前支持折叠栈导入与火焰图。
+4. 常驻 CPU `SIGPROF` 采样已实现但默认不编译，需 `-DVMON_ENABLE_CPU_PROFILER=ON` 的诊断版；内存/锁/IO 剖析、perf 仍未实现。eBPF/gRPC streaming 仅提供编译开关与接口层，需目标环境验证。
 5. 通知渠道（Webhook/邮件/syslog）未实现。
 6. 平台注册中心 API 对接、Parquet 落盘、发布记录关联未实现。
 7. 72 小时长稳、磁盘写满、时钟跳变等混沌测试尚未自动化。

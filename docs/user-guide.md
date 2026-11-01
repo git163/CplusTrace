@@ -220,6 +220,51 @@ vmon_server ... --webhook-url http://127.0.0.1:9000/vmon/events \
 
 总览里能看到 `webhook_sent / webhook_failed / webhook_dropped`。
 
+### 3.10 异常追踪、静默与拨测
+
+- **异常**页：错误日志模板与崩溃指纹聚合为 Issue，可「确认 / 指派 / 解决」，
+  支持按状态、服务、级别筛选；Issue 关联 trace_id 时可回到调用链。
+- **规则 → 告警静默**：按规则 / 服务 / 级别 / 时间窗抑制新事件；
+  静默不删除已产生事件，过期后自动恢复。
+- **事件分组**：同指纹、未解决的告警在 5 分钟窗口内合并，显示次数与最近时间。
+- **可用性拨测**：Agent 增加 `--probe`：
+
+```bash
+vmon_agent ... --probe \
+  'order-api=http://127.0.0.1:9000/health;interval_ms=30000;timeout_ms=3000;status=200'
+```
+
+总览「可用性拨测」显示 UP/DOWN；指标页可查 `probe.up`、`probe.duration_ms`、
+`probe.status_code`，规则可基于 `probe.up` 配阈值。
+
+### 3.11 仪表板与快照
+
+「仪表板」页支持三类 widget：
+
+```json
+[
+  {"type": "metric", "title": "主机负载", "metric": "host.load1"},
+  {"type": "traces", "title": "订单错误率", "service": "order"},
+  {"type": "logs", "title": "错误模板", "limit": 5}
+]
+```
+
+保存后即时计算；「生成快照」保存当前数据为只读快照，便于复盘/分享。
+
+### 3.12 诊断版 CPU 采样（可选）
+
+默认不编译常驻采样。需要时：
+
+```bash
+cmake -S . -B build-prof -DVMON_ENABLE_CPU_PROFILER=ON
+cmake --build build-prof -j
+```
+
+业务侧 `vmon::Config.enable_cpu_profiler=true` 后，SDK 用 `ITIMER_PROF` +
+`SIGPROF` 采样，聚合为折叠栈后经 Agent 上报为 `type=profile`；仅在诊断版打开，
+不建议生产常开。eBPF / gRPC streaming 也有对应 CMake 开关，
+需目标 Linux/gRPC 环境验证。
+
 ## 4. 常用查询速查
 
 ### HTTP

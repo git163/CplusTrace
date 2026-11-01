@@ -570,14 +570,35 @@ std::vector<MetricPoint> Store::recent_metrics(uint64_t since_ns,
 
 void Store::add_event(const EventRecord& event) {
   EventSink sink;
+  bool grouped = false;
+  EventRecord stored = event;
   {
     std::lock_guard<std::mutex> lock(mutex_);
-    events_.push_back(event);
-    while (events_.size() > config_.max_events) events_.pop_front();
+    if (!event.fingerprint.empty()) {
+      // 同指纹、仍处于 open 的事件在窗口内合并，避免告警风暴刷屏。
+      for (auto it = events_.rbegin(); it != events_.rend(); ++it) {
+        if (it->fingerprint == event.fingerprint && it->status == "open") {
+          const uint64_t last = it->last_ns == 0 ? it->time_ns : it->last_ns;
+          if (event.time_ns <= last + config_.event_group_window_ns) {
+            ++it->count;
+            it->last_ns = event.time_ns;
+            if (!event.detail.empty()) it->detail = event.detail;
+            grouped = true;
+            break;
+          }
+        }
+      }
+    }
+    if (!grouped) {
+      if (stored.last_ns == 0) stored.last_ns = stored.time_ns;
+      if (stored.count == 0) stored.count = 1;
+      events_.push_back(stored);
+      while (events_.size() > config_.max_events) events_.pop_front();
+    }
     sink = event_sink_;
   }
-  // 回调在锁外执行：Webhook 入队是异步的，但避免未来回调阻塞 Store。
-  if (sink) sink(event);
+  // 合并事件不重复通知；新事件才触发 Webhook。
+  if (sink && !grouped) sink(stored);
 }
 
 void Store::set_event_sink(EventSink sink) {

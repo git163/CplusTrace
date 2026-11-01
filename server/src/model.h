@@ -75,15 +75,17 @@ struct MetricPoint {
 
 struct EventRecord {
   std::string id;
-  uint64_t time_ns = 0;
-  std::string type;      // alert / crash / restart / deploy / change
-  std::string severity;  // info / warning / critical
+  uint64_t time_ns = 0;   // 首次发生时间
+  uint64_t last_ns = 0;   // 最近一次同指纹事件
+  uint32_t count = 1;     // 分组后的次数
+  std::string type;       // alert / crash / restart / deploy / change
+  std::string severity;   // info / warning / critical
   std::string title;
   std::string detail;
   std::string service;
   std::string node;
   std::string fingerprint;
-  std::string status;  // open / ack / resolved
+  std::string status;     // open / ack / resolved
   std::unordered_map<std::string, std::string> attrs;
 };
 

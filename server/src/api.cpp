@@ -691,6 +691,28 @@ ServerContext::ServerContext(const ServerConfig& server_config)
   if (config.evidence_dir.empty()) config.evidence_dir = config.state_dir + "/evidence";
   rules_path = config.state_dir + "/rules.json";
   slos_path = config.state_dir + "/slos.json";
+  silences_path = config.state_dir + "/silences.json";
+  std::string silence_error;
+  if (!silences.load(silences_path, &silence_error)) {
+    std::cerr << "静默配置加载失败: " << silence_error << std::endl;
+  }
+  issues_path = config.state_dir + "/issues.json";
+  std::string issue_error;
+  if (!issues.load(issues_path, &issue_error)) {
+    std::cerr << "Issue 状态加载失败: " << issue_error << std::endl;
+  }
+  dashboards_path = config.state_dir + "/dashboards.json";
+  std::string dashboard_error;
+  if (!dashboards.load(dashboards_path, &dashboard_error)) {
+    std::cerr << "仪表板加载失败: " << dashboard_error << std::endl;
+  }
+  rules.set_silence_matcher(
+      [this](const Rule& rule, const std::string& service,
+             const std::string& node, const std::string& severity,
+             uint64_t now) {
+        return silences.matches(rule.id, rule.type, service, node, severity,
+                                now);
+      });
   std::string pipeline_error;
   if (!pipeline.configure(config.pipeline, &pipeline_error)) {
     std::cerr << "Pipeline 配置失败，已关闭脱敏: " << pipeline_error
@@ -821,6 +843,20 @@ void register_routes(httplib::Server& server, ServerContext& ctx) {
           continue;
         }
         if (event.node.empty()) event.node = node;
+        // 诊断版 SDK 的 SIGPROF 采样：折叠栈直接进入 Probe/ProfileStore。
+        if (event.type == "profile") {
+          auto folded = event.attrs.find("folded");
+          if (folded != event.attrs.end() && !folded->second.empty()) {
+            ctx.profiles.add(folded->second, event.service,
+                             event.node.empty() ? node : event.node,
+                             event.instance,
+                             event.attrs.count("kind") ? event.attrs.at("kind")
+                                                       : "cpu",
+                             event.time_ns);
+            ++accepted;
+          }
+          continue;
+        }
         // 入库前脱敏：敏感字段不进入 Store，也不会出现在证据包/AI 上下文里。
         ctx.pipeline.process(&event);
         ctx.store.ingest(event, node, agent);
@@ -1037,6 +1073,38 @@ void register_routes(httplib::Server& server, ServerContext& ctx) {
                                 param_u64(req, "limit", 2000)));
   });
 
+  server.Get("/api/probes", [&ctx, guard](const httplib::Request& req,
+                                          httplib::Response& res) {
+    if (!guard(req, res)) return;
+    const uint64_t now = now_ns();
+    const uint64_t since = now > 3600000000000ull
+                               ? now - 3600000000000ull
+                               : 0;
+    std::map<std::string, nlohmann::json> latest;
+    for (const MetricPoint& point : ctx.store.recent_metrics(since, 5000)) {
+      if (point.name != "probe.up") continue;
+      auto probe_it = point.labels.find("probe");
+      const std::string probe =
+          probe_it == point.labels.end() ? "default" : probe_it->second;
+      auto existing = latest.find(probe);
+      if (existing != latest.end() &&
+          existing->second.value("time_ns", static_cast<uint64_t>(0)) >=
+              point.time_ns) {
+        continue;
+      }
+      nlohmann::json item;
+      item["name"] = probe;
+      item["up"] = point.value >= 1.0;
+      item["time_ns"] = point.time_ns;
+      item["time"] = iso_time(point.time_ns);
+      for (const auto& kv : point.labels) item[kv.first] = kv.second;
+      latest[probe] = item;
+    }
+    nlohmann::json out = nlohmann::json::array();
+    for (const auto& kv : latest) out.push_back(kv.second);
+    send_json(res, {{"probes", out}, {"count", out.size()}});
+  });
+
   server.Get("/api/events", [&ctx, guard](const httplib::Request& req,
                                           httplib::Response& res) {
     if (!guard(req, res)) return;
@@ -1170,6 +1238,205 @@ void register_routes(httplib::Server& server, ServerContext& ctx) {
                   ctx.save_rules();
                   send_json(res, {{"ok", true}});
                 });
+
+  // ------------------------------------------------------------ 告警静默
+  server.Get("/api/silences", [&ctx, guard](const httplib::Request& req,
+                                            httplib::Response& res) {
+    if (!guard(req, res)) return;
+    nlohmann::json out = nlohmann::json::array();
+    for (const Silence& silence : ctx.silences.list()) {
+      out.push_back(silence_to_json(silence));
+    }
+    send_json(res, {{"silences", out}});
+  });
+
+  server.Post("/api/silences", [&ctx, guard](const httplib::Request& req,
+                                             httplib::Response& res) {
+    if (!guard(req, res)) return;
+    nlohmann::json body;
+    std::string error;
+    if (!parse_body(req, &body, &error)) {
+      send_error(res, 400, error);
+      return;
+    }
+    Silence silence;
+    if (!ctx.silences.upsert_json(body, now_ns(), &silence, &error)) {
+      send_error(res, 400, error);
+      return;
+    }
+    if (!ctx.silences.save(ctx.silences_path, &error)) {
+      send_error(res, 500, error);
+      return;
+    }
+    send_json(res, {{"ok", true}, {"silence", silence_to_json(silence)}});
+  });
+
+  server.Delete(R"(/api/silences/([^/]+))",
+                [&ctx, guard](const httplib::Request& req,
+                              httplib::Response& res) {
+                  if (!guard(req, res)) return;
+                  const std::string id = req.matches[1].str();
+                  if (!ctx.silences.remove(id)) {
+                    send_error(res, 404, "静默不存在: " + id);
+                    return;
+                  }
+                  std::string error;
+                  if (!ctx.silences.save(ctx.silences_path, &error)) {
+                    send_error(res, 500, error);
+                    return;
+                  }
+                  send_json(res, {{"ok", true}});
+                });
+
+  // ------------------------------------------------------------ 异常追踪 Issue
+  server.Get("/api/issues", [&ctx, guard](const httplib::Request& req,
+                                          httplib::Response& res) {
+    if (!guard(req, res)) return;
+    IssueQuery query;
+    query.status = param(req, "status");
+    query.service = param(req, "service");
+    query.level = param(req, "level");
+    query.limit = param_u64(req, "limit", 100);
+    nlohmann::json out = nlohmann::json::array();
+    for (const IssueRecord& issue :
+         ctx.issues.list(ctx.store, ctx.crashes, query)) {
+      out.push_back(issue_to_json(issue));
+    }
+    send_json(res, {{"issues", out}, {"count", out.size()}});
+  });
+
+  server.Post(R"(/api/issues/([^/]+))",
+              [&ctx, guard](const httplib::Request& req,
+                            httplib::Response& res) {
+                if (!guard(req, res)) return;
+                nlohmann::json body;
+                std::string error;
+                if (!parse_body(req, &body, &error)) {
+                  send_error(res, 400, error);
+                  return;
+                }
+                const std::string id = req.matches[1].str();
+                if (!ctx.issues.update(id, body.value("status", std::string()),
+                                       body.value("assignee", std::string()),
+                                       body.value("note", std::string()),
+                                       &error)) {
+                  send_error(res, 400, error);
+                  return;
+                }
+                if (!ctx.issues.save(ctx.issues_path, &error)) {
+                  send_error(res, 500, error);
+                  return;
+                }
+                send_json(res, {{"ok", true}, {"id", id}});
+              });
+
+  // ------------------------------------------------------------ 数据洞察 / 快照
+  server.Get("/api/dashboards", [&ctx, guard](const httplib::Request& req,
+                                              httplib::Response& res) {
+    if (!guard(req, res)) return;
+    nlohmann::json out = nlohmann::json::array();
+    for (const Dashboard& dashboard : ctx.dashboards.list()) {
+      out.push_back(DashboardStore::dashboard_to_json(dashboard));
+    }
+    send_json(res, {{"dashboards", out}});
+  });
+
+  server.Post("/api/dashboards", [&ctx, guard](const httplib::Request& req,
+                                               httplib::Response& res) {
+    if (!guard(req, res)) return;
+    nlohmann::json body;
+    std::string error;
+    if (!parse_body(req, &body, &error)) {
+      send_error(res, 400, error);
+      return;
+    }
+    Dashboard dashboard;
+    if (!ctx.dashboards.upsert_json(body, now_ns(), &dashboard, &error)) {
+      send_error(res, 400, error);
+      return;
+    }
+    if (!ctx.dashboards.save(ctx.dashboards_path, &error)) {
+      send_error(res, 500, error);
+      return;
+    }
+    send_json(res, {{"ok", true},
+                    {"dashboard", DashboardStore::dashboard_to_json(dashboard)}});
+  });
+
+  server.Get(R"(/api/dashboards/([^/]+))",
+             [&ctx, guard](const httplib::Request& req,
+                           httplib::Response& res) {
+               if (!guard(req, res)) return;
+               Dashboard dashboard;
+               if (!ctx.dashboards.get(req.matches[1].str(), &dashboard)) {
+                 send_error(res, 404, "仪表板不存在");
+                 return;
+               }
+               send_json(res, ctx.dashboards.data(dashboard, ctx.store,
+                                                   now_ns()));
+             });
+
+  server.Delete(R"(/api/dashboards/([^/]+))",
+                [&ctx, guard](const httplib::Request& req,
+                              httplib::Response& res) {
+                  if (!guard(req, res)) return;
+                  if (!ctx.dashboards.remove(req.matches[1].str())) {
+                    send_error(res, 404, "仪表板不存在");
+                    return;
+                  }
+                  std::string error;
+                  if (!ctx.dashboards.save(ctx.dashboards_path, &error)) {
+                    send_error(res, 500, error);
+                    return;
+                  }
+                  send_json(res, {{"ok", true}});
+                });
+
+  server.Post(R"(/api/dashboards/([^/]+)/snapshot)",
+              [&ctx, guard](const httplib::Request& req,
+                            httplib::Response& res) {
+                if (!guard(req, res)) return;
+                DashboardSnapshot snapshot;
+                std::string error;
+                if (!ctx.dashboards.create_snapshot(
+                        req.matches[1].str(), ctx.store, now_ns(), &snapshot,
+                        &error)) {
+                  send_error(res, 404, error);
+                  return;
+                }
+                if (!ctx.dashboards.save(ctx.dashboards_path, &error)) {
+                  send_error(res, 500, error);
+                  return;
+                }
+                send_json(res, {{"ok", true},
+                                {"snapshot",
+                                 DashboardStore::snapshot_to_json(snapshot)}});
+              });
+
+  server.Get("/api/snapshots", [&ctx, guard](const httplib::Request& req,
+                                             httplib::Response& res) {
+    if (!guard(req, res)) return;
+    nlohmann::json out = nlohmann::json::array();
+    for (const DashboardSnapshot& snapshot : ctx.dashboards.snapshots()) {
+      nlohmann::json item = DashboardStore::snapshot_to_json(snapshot);
+      item.erase("data");
+      out.push_back(item);
+    }
+    send_json(res, {{"snapshots", out}});
+  });
+
+  server.Get(R"(/api/snapshots/([^/]+))",
+             [&ctx, guard](const httplib::Request& req,
+                           httplib::Response& res) {
+               if (!guard(req, res)) return;
+               DashboardSnapshot snapshot;
+               if (!ctx.dashboards.get_snapshot(req.matches[1].str(),
+                                                &snapshot)) {
+                 send_error(res, 404, "快照不存在");
+                 return;
+               }
+               send_json(res, DashboardStore::snapshot_to_json(snapshot));
+             });
 
   // ------------------------------------------------------------ 命令与动态级别
   server.Get("/v1/commands", [&ctx, guard](const httplib::Request& req,

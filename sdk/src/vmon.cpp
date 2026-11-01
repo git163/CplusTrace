@@ -14,6 +14,10 @@
 #include "core/thread_context.h"
 #include "transport/sender.h"
 
+#ifdef VMON_ENABLE_CPU_PROFILER
+#include "profiler/cpu_profiler.h"
+#endif
+
 namespace vmon {
 namespace {
 
@@ -74,11 +78,20 @@ bool init(const Config& config) noexcept {
   if (effective.enable_crash_handler) {
     crash_handler.install(effective);
   }
+#ifdef VMON_ENABLE_CPU_PROFILER
+  if (effective.enable_cpu_profiler) {
+    detail::CpuProfiler::instance().start(effective,
+                                          static_cast<uint32_t>(pid));
+  }
+#endif
   return true;
 }
 
 void shutdown() noexcept {
   g_enabled.store(false, std::memory_order_release);
+#ifdef VMON_ENABLE_CPU_PROFILER
+  detail::CpuProfiler::instance().stop();
+#endif
   g_control.stop();
   detail::Sender::instance().stop();
   // 崩溃处理器在 init 中按配置安装；正常退出时移除占位文件。

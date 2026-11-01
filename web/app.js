@@ -148,6 +148,35 @@
     return html;
   }
 
+  async function loadProbes() {
+    try {
+      const data = await api("/api/probes");
+      const probes = data.probes || [];
+      $("overview-probes").innerHTML = probes.length
+        ? '<table><thead><tr><th>拨测</th><th>目标</th><th>状态</th><th>时间</th></tr></thead><tbody>' +
+          probes
+            .map(
+              (p) =>
+                "<tr><td>" +
+                esc(p.name) +
+                '</td><td class="mono truncate">' +
+                esc(p.url || "") +
+                "</td><td>" +
+                (p.up
+                  ? '<span class="ok-text">UP</span>'
+                  : '<span class="error-text">DOWN</span>') +
+                "</td><td>" +
+                esc(p.time || "") +
+                "</td></tr>"
+            )
+            .join("") +
+          "</tbody></table>"
+        : '<p class="muted">暂无拨测任务</p>';
+    } catch (err) {
+      $("overview-probes").innerHTML = '<p class="muted">拨测数据不可用</p>';
+    }
+  }
+
   const loadOverview = safeRun(async function () {
     const data = await api("/api/overview");
     $("overview-cards").innerHTML = cards([
@@ -161,6 +190,7 @@
       { label: "日志", value: data.log_count, hint: "采样 " + data.logs_sampled + " / 去重 " + data.logs_deduped + " / 噪声 " + data.logs_noise },
     ]);
 
+    loadProbes();
     $("overview-slow").innerHTML = traceTable(data.slow_traces, openTrace);
     $("overview-errors").innerHTML = (data.top_errors || []).length
       ? '<table><thead><tr><th>次数</th><th>级别</th><th>模板</th><th>服务</th></tr></thead><tbody>' +
@@ -771,7 +801,7 @@
     if (service) params.set("service", service);
     const data = await api("/api/events?" + params.toString());
     $("events-result").innerHTML = data.events.length
-      ? '<table><thead><tr><th>时间</th><th>级别</th><th>类型</th><th>标题</th><th>详情</th><th>对象</th><th>状态</th><th>操作</th></tr></thead><tbody>' +
+      ? '<table><thead><tr><th>时间</th><th>级别</th><th>类型</th><th>标题</th><th>详情</th><th>对象</th><th>次数</th><th>状态</th><th>操作</th></tr></thead><tbody>' +
         data.events
           .map(
             (e) =>
@@ -789,6 +819,8 @@
               esc(e.service || "") +
               " " +
               esc(e.node || "") +
+              "</td><td>" +
+              esc(e.count || 1) +
               "</td><td>" +
               esc(e.status) +
               "</td><td>" +
@@ -821,6 +853,89 @@
     };
     bindAction("data-ack", "ack", "已确认");
     bindAction("data-resolve", "resolve", "已解决");
+  }
+
+  // ------------------------------------------------------------ 异常追踪
+  async function loadIssues() {
+    const params = new URLSearchParams({ limit: "200" });
+    ["status", "service", "level"].forEach((key) => {
+      const value = $("issue-" + key).value.trim();
+      if (value) params.set(key, value);
+    });
+    const data = await api("/api/issues?" + params.toString());
+    const issues = data.issues || [];
+    $("issues-result").innerHTML = issues.length
+      ? '<table><thead><tr><th>最近</th><th>级别</th><th>类型</th><th>服务</th><th>次数</th><th>标题 / 样本</th><th>负责人</th><th>状态</th><th>操作</th></tr></thead><tbody>' +
+        issues
+          .map(
+            (issue) =>
+              '<tr><td class="mono">' +
+              esc(issue.last_time || "") +
+              "</td><td>" +
+              badge(issue.level) +
+              "</td><td>" +
+              esc(issue.kind) +
+              "</td><td>" +
+              esc(issue.service || "-") +
+              "</td><td>" +
+              esc(issue.count) +
+              '</td><td class="truncate">' +
+              esc(issue.title || "") +
+              '<div class="muted mono truncate">' +
+              esc(issue.sample || "") +
+              '</div><div class="muted">' +
+              (issue.trace_id
+                ? '<a href="#traces">查看 trace</a> <span class="muted mono">' +
+                  esc(issue.trace_id.slice(0, 8)) +
+                  "</span>"
+                : "") +
+              "</div></td><td>" +
+              esc(issue.assignee || "-") +
+              "</td><td>" +
+              esc(issue.status) +
+              "</td><td>" +
+              (issue.status === "open"
+                ? '<button data-issue-ack="' + esc(issue.id) + '">确认</button> '
+                : "") +
+              (issue.status !== "resolved"
+                ? '<button data-issue-resolve="' + esc(issue.id) + '">解决</button> '
+                : "") +
+              '<button data-issue-assign="' + esc(issue.id) + '">指派</button>' +
+              "</td></tr>"
+          )
+          .join("") +
+        "</tbody></table>"
+      : empty("暂无异常");
+
+    document.querySelectorAll("[data-issue-ack]").forEach((button) => {
+      button.addEventListener("click", () =>
+        updateIssue(button.getAttribute("data-issue-ack"), { status: "ack" })
+      );
+    });
+    document.querySelectorAll("[data-issue-resolve]").forEach((button) => {
+      button.addEventListener("click", () =>
+        updateIssue(button.getAttribute("data-issue-resolve"), {
+          status: "resolved",
+        })
+      );
+    });
+    document.querySelectorAll("[data-issue-assign]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const assignee = window.prompt("指派给（输入 - 清空）");
+        if (assignee === null) return;
+        updateIssue(button.getAttribute("data-issue-assign"), { assignee });
+      });
+    });
+  }
+
+  async function updateIssue(id, body) {
+    try {
+      await api("/api/issues/" + encodeURIComponent(id), { json: body });
+      toast("异常已更新");
+      loadIssues();
+    } catch (err) {
+      toast(err.message);
+    }
   }
 
   // ------------------------------------------------------------ 崩溃
@@ -1026,6 +1141,224 @@
   }
 
   // ------------------------------------------------------------ SLO
+  // ------------------------------------------------------------ 仪表板 / 快照
+  function renderDashboard(data) {
+    const widgets = (data.widgets || [])
+      .map((w) => {
+        let body = "";
+        if (w.type === "metric") {
+          body =
+            '<p class="muted">最新 ' +
+            esc(Number(w.last || 0).toFixed(3)) +
+            " · min " +
+            esc(Number(w.min || 0).toFixed(3)) +
+            " · max " +
+            esc(Number(w.max || 0).toFixed(3)) +
+            " · " +
+            esc(w.count || 0) +
+            " 点</p>" +
+            sparkline(w.values || []);
+        } else if (w.type === "traces") {
+          body =
+            '<p class="muted">' +
+            esc(w.count || 0) +
+            " 条 · 错误率 " +
+            esc(Number(w.error_rate || 0).toFixed(1)) +
+            "% · P95 " +
+            esc(Number(w.p95_ms || 0).toFixed(1)) +
+            " ms</p>" +
+            ((w.recent || []).length
+              ? '<table><thead><tr><th>服务</th><th>入口</th><th>耗时</th><th>状态</th></tr></thead><tbody>' +
+                w.recent
+                  .map(
+                    (t) =>
+                      "<tr><td>" +
+                      esc(t.service) +
+                      "</td><td>" +
+                      esc(t.name) +
+                      "</td><td>" +
+                      esc(Number(t.duration_ms || 0).toFixed(1)) +
+                      " ms</td><td>" +
+                      (t.has_error ? "错误" : "正常") +
+                      "</td></tr>"
+                  )
+                  .join("") +
+                "</tbody></table>"
+              : '<p class="muted">暂无链路</p>');
+        } else if (w.type === "logs") {
+          body = (w.clusters || []).length
+            ? '<table><thead><tr><th>次数</th><th>级别</th><th>模板</th><th>服务</th></tr></thead><tbody>' +
+              w.clusters
+                .map(
+                  (c) =>
+                    "<tr><td>" +
+                    esc(c.count) +
+                    "</td><td>" +
+                    esc(c.level) +
+                    "</td><td class=\"mono truncate\">" +
+                    esc(c.template) +
+                    "</td><td>" +
+                    esc(c.service) +
+                    "</td></tr>"
+                )
+                .join("") +
+              "</tbody></table>"
+            : '<p class="muted">暂无日志</p>';
+        } else {
+          body = "<p>" + esc(w.text || "") + "</p>";
+        }
+        return (
+          '<div class="panel"><h3>' +
+          esc(w.title || w.type) +
+          "</h3>" +
+          body +
+          "</div>"
+        );
+      })
+      .join("");
+    return (
+      '<div class="panel"><div class="toolbar"><h3>' +
+      esc(data.name || data.id) +
+      '</h3><button data-dash-snapshot="' +
+      esc(data.id) +
+      '">生成快照</button><button data-dash-delete="' +
+      esc(data.id) +
+      '">删除</button></div>' +
+      '<p class="muted">' +
+      esc(data.description || "") +
+      "</p></div>" +
+      widgets
+    );
+  }
+
+  async function loadDashboards() {
+    const data = await api("/api/dashboards");
+    const list = data.dashboards || [];
+    if (!list.length) {
+      $("dashboards-result").innerHTML = empty(
+        "暂无仪表板。填写名称与 widgets JSON 后保存。"
+      );
+    } else {
+      const rendered = [];
+      for (const dashboard of list) {
+        try {
+          rendered.push(
+            renderDashboard(
+              await api("/api/dashboards/" + encodeURIComponent(dashboard.id))
+            )
+          );
+        } catch (err) {
+          rendered.push(
+            '<div class="panel"><h3>' +
+              esc(dashboard.name) +
+              '</h3><p class="error-text">' +
+              esc(err.message) +
+              "</p></div>"
+          );
+        }
+      }
+      $("dashboards-result").innerHTML = rendered.join("");
+    }
+    document.querySelectorAll("[data-dash-snapshot]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        try {
+          const result = await api(
+            "/api/dashboards/" +
+              encodeURIComponent(button.getAttribute("data-dash-snapshot")) +
+              "/snapshot",
+            { method: "POST" }
+          );
+          toast("快照已生成 " + (result.snapshot && result.snapshot.id));
+          loadSnapshots();
+        } catch (err) {
+          toast(err.message);
+        }
+      });
+    });
+    document.querySelectorAll("[data-dash-delete]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        try {
+          await api(
+            "/api/dashboards/" +
+              encodeURIComponent(button.getAttribute("data-dash-delete")),
+            { method: "DELETE" }
+          );
+          toast("仪表板已删除");
+          loadDashboards();
+        } catch (err) {
+          toast(err.message);
+        }
+      });
+    });
+    loadSnapshots();
+  }
+
+  async function saveDashboard() {
+    let widgets;
+    try {
+      widgets = JSON.parse($("dashboard-widgets").value || "[]");
+    } catch (err) {
+      $("dashboard-msg").textContent = "widgets JSON 解析失败: " + err.message;
+      return;
+    }
+    try {
+      await api("/api/dashboards", {
+        json: {
+          id: $("dashboard-id").value.trim(),
+          name: $("dashboard-name").value.trim(),
+          description: $("dashboard-desc").value.trim(),
+          widgets,
+        },
+      });
+      $("dashboard-msg").textContent = "已保存";
+      loadDashboards();
+    } catch (err) {
+      $("dashboard-msg").textContent = err.message;
+    }
+  }
+
+  async function loadSnapshots() {
+    const data = await api("/api/snapshots");
+    const snapshots = data.snapshots || [];
+    $("snapshots-result").innerHTML = snapshots.length
+      ? '<table><thead><tr><th>快照</th><th>仪表板</th><th>时间</th><th></th></tr></thead><tbody>' +
+        snapshots
+          .map(
+            (s) =>
+              '<tr><td class="mono">' +
+              esc(s.id) +
+              "</td><td>" +
+              esc(s.name) +
+              '</td><td class="mono">' +
+              esc(s.created) +
+              '</td><td><button data-snapshot="' +
+              esc(s.id) +
+              '">查看</button></td></tr>'
+          )
+          .join("") +
+        "</tbody></table>"
+      : '<p class="muted">暂无快照</p>';
+    document.querySelectorAll("[data-snapshot]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        try {
+          const snapshot = await api(
+            "/api/snapshots/" +
+              encodeURIComponent(button.getAttribute("data-snapshot"))
+          );
+          $("dashboards-result").innerHTML =
+            '<div class="panel"><h3>快照 ' +
+            esc(snapshot.id) +
+            '</h3><p class="muted">' +
+            esc(snapshot.created) +
+            ' · 只读</p></div>' +
+            renderDashboard(snapshot.data || {});
+        } catch (err) {
+          toast(err.message);
+        }
+      });
+    });
+  }
+
   async function loadSlos() {
     const data = await api("/api/slos");
     const slos = data.slos || [];
@@ -1261,6 +1594,70 @@
     }
   }
 
+  // ------------------------------------------------------------ 告警静默
+  async function loadSilences() {
+    const data = await api("/api/silences");
+    const silences = data.silences || [];
+    $("silences-result").innerHTML = silences.length
+      ? '<table><thead><tr><th>名称</th><th>规则</th><th>服务</th><th>开始</th><th>结束</th><th>状态</th><th>原因</th><th></th></tr></thead><tbody>' +
+        silences
+          .map(
+            (s) =>
+              "<tr><td>" +
+              esc(s.name || s.id) +
+              '</td><td class="mono">' +
+              esc(s.rule_id || "-") +
+              "</td><td>" +
+              esc(s.service || "-") +
+              '</td><td class="mono">' +
+              esc(s.start || "") +
+              '</td><td class="mono">' +
+              esc(s.end || "") +
+              "</td><td>" +
+              (s.active ? "生效中" : "已过期") +
+              "</td><td>" +
+              esc(s.reason || "") +
+              '</td><td><button data-silence-delete="' +
+              esc(s.id) +
+              '">删除</button></td></tr>'
+          )
+          .join("") +
+        "</tbody></table>"
+      : '<p class="muted">暂无静默</p>';
+    document.querySelectorAll("[data-silence-delete]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        try {
+          await api(
+            "/api/silences/" +
+              encodeURIComponent(button.getAttribute("data-silence-delete")),
+            { method: "DELETE" }
+          );
+          toast("静默已删除");
+          loadSilences();
+        } catch (err) {
+          toast(err.message);
+        }
+      });
+    });
+  }
+
+  async function saveSilence() {
+    const body = {
+      name: $("silence-name").value.trim(),
+      rule_id: $("silence-rule").value.trim(),
+      service: $("silence-service").value.trim(),
+      duration_minutes: Number($("silence-minutes").value || 60),
+      reason: $("silence-reason").value.trim(),
+    };
+    try {
+      await api("/api/silences", { json: body });
+      $("silence-msg").textContent = "已创建静默";
+      loadSilences();
+    } catch (err) {
+      $("silence-msg").textContent = err.message;
+    }
+  }
+
   // ------------------------------------------------------------ 路由与初始化
   function showView(name) {
     if (!document.getElementById("view-" + name)) name = "overview";
@@ -1290,9 +1687,11 @@
       services: loadServices,
       nodes: loadNodes,
       events: loadEvents,
+      issues: loadIssues,
       crashes: loadCrashes,
       profiles: loadProfiles,
       metrics: loadMetrics,
+      dashboards: loadDashboards,
       slos: loadSlos,
       diagnose: loadCommands,
       rules: loadRules,
@@ -1327,9 +1726,12 @@
     $("services-refresh").addEventListener("click", safeRun(loadServices));
     $("nodes-refresh").addEventListener("click", safeRun(loadNodes));
     $("events-refresh").addEventListener("click", safeRun(loadEvents));
+    $("issues-refresh").addEventListener("click", safeRun(loadIssues));
     $("crashes-refresh").addEventListener("click", safeRun(loadCrashes));
     $("profiles-refresh").addEventListener("click", safeRun(loadProfiles));
     $("metrics-search").addEventListener("click", safeRun(loadMetrics));
+    $("dashboards-refresh").addEventListener("click", safeRun(loadDashboards));
+    $("dashboard-save").addEventListener("click", saveDashboard);
     $("slos-refresh").addEventListener("click", safeRun(loadSlos));
     $("slo-save").addEventListener("click", saveSlo);
     $("diag-run").addEventListener("click", safeRun(runDiagnosis));
@@ -1338,6 +1740,8 @@
     $("commands-refresh").addEventListener("click", safeRun(loadCommands));
     $("rules-refresh").addEventListener("click", safeRun(loadRules));
     $("rule-save").addEventListener("click", saveRule);
+    $("silence-save").addEventListener("click", saveSilence);
+    safeRun(loadSilences)();
     $("rf-save").addEventListener("click", saveRuleForm);
 
     showView(location.hash.slice(1) || "overview");

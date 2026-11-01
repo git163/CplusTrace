@@ -241,8 +241,11 @@ flowchart LR
 | 发送线程 | `sdk/src/transport/sender.*` | 排空各线程环，序列化 JSONL，写 UDS | 100ms / 64KB 批量 |
 | 控制通道 | `sdk/src/control/control_server.*` | `set_level`、`ping`、`dump_stacks`、`get_stats` | 独立线程，UDS |
 | 崩溃兜底 | `sdk/src/crash/crash_handler.*` | async-signal-safe 写最小崩溃 JSON | 信号上下文，只 write |
+| CPU 采样（可选） | `sdk/src/profiler/cpu_profiler.*` | ITIMER_PROF + SIGPROF，折叠栈上报 | `-DVMON_ENABLE_CPU_PROFILER=ON`，默认关闭 |
 | 传播编解码 | `adapters/grpc/propagation.*` | W3C traceparent、request_id/task_id 头 | 无状态函数 |
 | Socket 头 | `adapters/ipc/socket_header.h` | 24 字节 trace 头编解码 | 无状态函数 |
+| gRPC streaming | `adapters/grpc/streaming.h` | 流式 Span 生命周期辅助器 | 需按目标 gRPC 版本接 interceptor |
+| eBPF 弱边 | `adapters/bpf/weak_edge.h` | 弱边采集接口（默认不可用） | 需 Linux + libbpf 实现 collector |
 
 ### 3.2 公共 API
 
@@ -291,6 +294,7 @@ flowchart LR
 | 控制客户端 | `agent/src/control_client.*` | 连接 `<control_dir>/<pid>.sock` |
 | 命令执行 | `agent/src/command_runner.*` | 轮询 Server 命令，白名单只读执行，回报 |
 | 崩溃收集 | `agent/src/crash_collect.*` | 扫描 `crash-<pid>.json`，上传后删除 |
+| 可用性拨测 | `agent/src/probe.*` | HTTP 拨测 up/duration/status，失败产生错误日志 |
 | 主循环 | `agent/src/main.cpp` | 组装上述模块、定时器、信号处理 |
 
 ### 4.2 WAL 与上传
@@ -324,6 +328,7 @@ Server 命令队列
 | 命令轮询 | 100ms~1s | 下发控制/诊断命令 |
 | 上传 | 200ms~1s | WAL 封存段上传 |
 | 崩溃扫描 | 2s | 崩溃报告上传 |
+| HTTP 拨测 | 每任务 30s（可配） | up/duration/status 指标 |
 
 ## 5. Server（`server/`）
 
@@ -344,6 +349,9 @@ Server 命令队列
 | 剖析 | `server/src/profiler.*` | 折叠栈聚合、Top self/inclusive、火焰图 |
 | 崩溃 | `server/src/crash.*` | 崩溃去重、指纹、符号化入口 |
 | 命令队列 | `server/src/commands.*` | 下发、状态、结果、超时 |
+| 异常追踪 | `server/src/issues.*` | 错误聚类/崩溃聚合为 Issue，指派与生命周期 |
+| 告警静默 | `server/src/silence.*` | 按规则/服务/级别/时间窗抑制事件 |
+| 仪表板 | `server/src/dashboard.*` | 指标/链路/日志 widget 与只读快照 |
 | Pipeline | `server/src/pipeline.*` | 入库前正则脱敏（password/token/email/IP/手机号） |
 | Webhook | `server/src/notifier.*` | 事件异步推送，有界队列与失败计数 |
 | 转发 | `server/src/forwarder.*` | 可选 VM/VL 转发（默认关闭） |
@@ -391,7 +399,7 @@ GET /api/traces/{id}
 | `tools/cli/` | `vmonctl` 子命令 |
 | `tools/mcp/` | stdio MCP 桥，只读工具 |
 | `tools/crash_helper/` | core_pattern helper |
-| `web/` | hash 路由 SPA，14 个视图 |
+| `web/` | hash 路由 SPA，16 个视图 |
 | `clients/python/` | Python Span、HTTP 包装、批量上报 |
 | `clients/web/` | 浏览器 traceparent 注入、fetch 包装 |
 | `examples/http_backend/` | 接收 Python/Web 调用并续接 trace 的 C++ 后端 |
@@ -995,5 +1003,6 @@ flowchart TD
 2. gRPC 只提供传播层，client/server interceptor 需按目标工程版本接入；streaming/异步未覆盖。
 3. Socket 只有 24 字节头编解码，具体协议接入由业务方完成；eBPF 弱边未实现。
 4. 剖析只做折叠栈导入与聚合，不做常驻 `SIGPROF`/perf。
-5. 通知渠道、BFF 聚合接口、OTLP 接入未实现。
+5. 邮件/syslog 通知、BFF 聚合接口、OTLP 接入未实现；Webhook 已支持。
 6. Linux aarch64/gcc 7.3 需在目标机实机验证；macOS 为开发验证环境。
+7. 常驻 CPU SIGPROF 需 `-DVMON_ENABLE_CPU_PROFILER=ON` 且仅建议诊断版；eBPF/gRPC streaming 需目标环境依赖，当前仅提供编译开关与传播/接口层。

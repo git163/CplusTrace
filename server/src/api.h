@@ -11,11 +11,14 @@
 #include "commands.h"
 #include "config.h"
 #include "crash.h"
+#include "dashboard.h"
 #include "forwarder.h"
+#include "issues.h"
 #include "notifier.h"
 #include "pipeline.h"
 #include "profiler.h"
 #include "rules.h"
+#include "silence.h"
 #include "slo.h"
 #include "store.h"
 
@@ -32,12 +35,18 @@ struct ServerContext {
   CommandStore commands;
   RuleEngine rules;
   SloManager slos;
+  SilenceStore silences;
+  IssueStore issues;
+  DashboardStore dashboards;
   Forwarder forwarder;
   Pipeline pipeline;
   Notifier notifier;
   uint64_t started_ns = 0;
   std::string rules_path;
   std::string slos_path;
+  std::string silences_path;
+  std::string issues_path;
+  std::string dashboards_path;
 
   void load_rules();
   void save_rules();

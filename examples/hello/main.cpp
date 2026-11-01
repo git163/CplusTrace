@@ -122,6 +122,10 @@ int main() {
   if (!agent_endpoint.empty()) config.agent_endpoint = agent_endpoint;
   const std::string control_dir = Env("VMON_CONTROL_DIR");
   if (!control_dir.empty()) config.control_dir = control_dir;
+  // 诊断版：配合 -DVMON_ENABLE_CPU_PROFILER=ON 打开常驻采样。
+  if (std::string(Env("VMON_CPU_PROFILER")) == "1") {
+    config.enable_cpu_profiler = true;
+  }
 
   if (!vmon::init(config)) {
     // 初始化失败只影响维测能力，业务照常运行。

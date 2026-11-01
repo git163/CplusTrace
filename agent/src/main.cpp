@@ -22,6 +22,7 @@
 #include "ingest.h"
 #include "log_tail.h"
 #include "metrics.h"
+#include "probe.h"
 #include "process_scan.h"
 #include "uploader.h"
 #include "wal.h"
@@ -79,6 +80,7 @@ int main(int argc, char** argv) {
   vmon::agent::AgentConfig config;
   std::string config_path;
   std::vector<std::string> log_file_args;
+  std::vector<std::string> probe_args;
 
   CLI::App app{"vmon-agent：节点维测采集代理", "vmon-agent"};
   app.set_version_flag("--version", "0.1.0");
@@ -108,6 +110,8 @@ int main(int argc, char** argv) {
                  "WAL 总容量上限");
   app.add_option("--log-file", log_file_args,
                  "待采集日志，格式 path[=service]，可重复");
+  app.add_option("--probe", probe_args,
+                 "HTTP 拨测，格式 name=url[;interval_ms=30000;timeout_ms=3000;status=200]，可重复");
   CLI11_PARSE(app, argc, argv);
 
   std::string error;
@@ -128,6 +132,16 @@ int main(int argc, char** argv) {
       lf.service = arg.substr(eq + 1);
     }
     if (!lf.path.empty()) config.log_files.push_back(lf);
+  }
+  std::vector<vmon::agent::ProbeConfig> probes;
+  for (const std::string& spec : probe_args) {
+    vmon::agent::ProbeConfig probe;
+    std::string probe_error;
+    if (!vmon::agent::parse_probe_spec(spec, &probe, &probe_error)) {
+      std::cerr << "vmon-agent: 忽略非法拨测配置: " << probe_error << std::endl;
+      continue;
+    }
+    probes.push_back(probe);
   }
   if (config.node.empty()) config.node = vmon::agent::hostname();
   const std::string agent = vmon::agent::agent_id();
@@ -161,6 +175,13 @@ int main(int argc, char** argv) {
 
   vmon::agent::CrashCollector crash_collector(config, config.node, agent);
   crash_collector.start();
+
+  vmon::agent::ProbeRunner probe_runner(
+      config.node, agent, probes,
+      [&wal](const vmon::common::Event& event) {
+        wal.append(vmon::common::to_json(event).dump());
+      });
+  probe_runner.start();
 
   vmon::agent::LogTailer tailer;
   for (const auto& lf : config.log_files) {
@@ -235,6 +256,7 @@ int main(int argc, char** argv) {
   }
 
   std::cerr << "vmon-agent: 正在退出" << std::endl;
+  probe_runner.stop();
   crash_collector.stop();
   command_runner.stop();
   ingest.stop();

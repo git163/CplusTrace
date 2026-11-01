@@ -56,6 +56,11 @@ sudo systemd-tmpfiles --create vmon.conf
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+# 可选诊断能力（默认全关，按需在诊断版打开）
+#   -DVMON_ENABLE_CPU_PROFILER=ON   常驻 CPU SIGPROF 采样
+#   -DVMON_ENABLE_EBPF=ON           eBPF 弱边（Linux + libbpf）
+#   -DVMON_ENABLE_GRPC=ON           gRPC streaming/异步拦截（需目标 gRPC）
 cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```

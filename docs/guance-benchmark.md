@@ -30,11 +30,12 @@
 | 日志检索 / 聚类 / 关联 | 高：现场日志量大 | 已有 | 保持 |
 | Pipeline 解析/脱敏 | 高：敏感信息不能入库 | **本轮补齐**（正则脱敏） | 保持，后续加字段提取 |
 | 日志告警 / 阈值 / 突变 | 高：规则引擎已有 | 已有 4 类规则 | 后续加突变检测 |
-| 事件中心 | 高：告警需要闭环 | 已有 open/ack/resolved | 保持 |
+| 事件中心 | 高：告警需要闭环 | 已有 open/ack/resolved，新增同指纹分组 | 保持 |
 | 多渠道通知 | 高：告警要触达 | **本轮补齐 Webhook** | 邮件/syslog 二期 |
-| 异常追踪 Issue | 高：错误聚合与复盘 | 有日志聚类/事件，缺 Issue 生命周期 | **下一优先** |
-| 数据洞察/仪表板/笔记/快照 | 中：演示与协作 | 有固定视图，无自定义 | 暂不做 |
-| 可用性拨测（HTTP/TCP/DNS/SSL） | 中高：内网也可用 | 无 | 评估二期 |
+| 告警静默/分组 | 高：降低噪音 | **本轮补齐**（静默 + 同指纹分组） | 保持 |
+| 异常追踪 Issue | 高：错误聚合与复盘 | **本轮补齐**（聚合/指派/ack/resolve） | 保持 |
+| 数据洞察/仪表板/快照 | 中：演示与协作 | **本轮补齐轻量仪表板 + 只读快照** | 笔记/拖拽后续 |
+| 可用性拨测（HTTP/TCP/DNS/SSL） | 中高：内网也可用 | **本轮补齐 HTTP 拨测** | TCP/DNS/SSL 二期 |
 | RUM / 移动端 / Session | 低：目标是 C++ 后端 | 无 | 非目标 |
 | 权限/空间/字段级脱敏 | 中：多团队才需要 | Token 鉴权 + 证据包脱敏 | RBAC 非目标 |
 | MCP / AI 上下文 | 高：内部 AI 排障 | 已有只读 MCP | 保持 |
@@ -65,7 +66,40 @@
 - Web 服务页展示 QPS、错误率、P95；
 - E2E 断言服务统计存在。
 
-### 3.4 客户端与场景
+### 3.4 异常追踪 Issue
+
+- 位置：`server/src/issues.*`；
+- 错误日志模板 + 崩溃指纹派生 Issue，合并持久化的 ack/指派/备注；
+- API：`GET /api/issues`、`POST /api/issues/{id}`；
+- Web「异常」页支持确认、指派、解决与筛选；
+- 测试：`server/tests/issues_test.cpp` + E2E。
+
+### 3.5 告警静默与事件分组
+
+- 位置：`server/src/silence.*` + `Store::add_event`；
+- 按规则/类型/服务/节点/级别/时间窗静默，静默不影响已产生事件；
+- 同指纹 open 事件 5 分钟窗口内合并，count/last 递增；
+- API：`GET/POST/DELETE /api/silences`；
+- 测试：`silence_test.cpp` + Store 分组单测 + E2E。
+
+### 3.6 HTTP 可用性拨测
+
+- 位置：`agent/src/probe.*`；
+- `--probe name=url[;interval_ms=..;timeout_ms=..;status=..]`；
+- 指标 `probe.up / probe.duration_ms / probe.status_code`，失败产生错误日志；
+- `/api/probes` 汇总 + 总览展示；
+- 测试：`probe_test.cpp` + E2E。
+
+### 3.7 仪表板与快照
+
+- 位置：`server/src/dashboard.*`；
+- widget 类型：metric / traces / logs / text；
+- 仪表板定义与快照持久化，快照只读；
+- API：`/api/dashboards*`、`/api/snapshots*`；
+- Web「仪表板」页；
+- 测试：`dashboard_test.cpp` + E2E。
+
+### 3.8 客户端与场景
 
 - Python/Web 客户端 trace 接入与 C++ 后端示例；
 - 6 类场景 demo 与快速诊断/场景手册。
@@ -74,10 +108,8 @@
 
 | 优先级 | 能力 | 为什么值得做 | 预估 |
 |---|---|---|---|
-| P1 | 异常追踪 Issue | 把错误模板/崩溃聚合成 Issue，支持分派、ack、resolve、关联 trace | 3–5 天 |
-| P1 | 告警静默/分组 | 降低重复告警；与事件中心配合 | 1–2 天 |
-| P2 | HTTP 可用性拨测 | 从 Agent 周期探测关键接口，记录 up/duration/状态码 | 2–3 天 |
-| P2 | 仪表板/快照/笔记 | 团队复盘与分享；可先做只读快照 | 3–5 天 |
+| P1 | 仪表板拖拽/笔记 | 当前为 JSON 配置 + 只读快照，交互可继续增强 | 3–5 天 |
+| P2 | 拨测协议扩展 | 当前 HTTP；TCP/DNS/SSL/WebSocket 待补 | 2–3 天 |
 | P2 | 字段提取/类型转换 | Pipeline 从“脱敏”扩展到“结构化” | 2–3 天 |
 | P3 | 突变/基线检测 | 比固定阈值更少误报 | 3–5 天 |
 | P3 | OTLP 接入 | 兼容其他语言/系统 | 1–2 周 |
@@ -92,5 +124,6 @@
 4. **服务性能视角**：先看 QPS/错误率/P95，再决定下钻哪条 trace。
 
 本轮把其中最适合当前规模、且不破坏「不影响生产」约束的
-**Pipeline 脱敏、Webhook、服务性能分析**落地；Issue、静默、拨测、
-仪表板列为下一阶段。这样既不追求大而全，也不会在关键排障路径上缺能力。
+**Pipeline 脱敏、Webhook、服务性能分析、Issue、静默/分组、HTTP 拨测、
+仪表板/快照**落地；更复杂的拖拽式仪表板、多协议拨测、字段提取、
+突变检测与 OTLP 列为下一阶段。这样既不追求大而全，也不会在关键排障路径上缺能力。

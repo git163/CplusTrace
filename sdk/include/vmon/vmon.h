@@ -28,6 +28,12 @@ struct Config {
   bool        enable_crash_handler = false;
   std::string crash_report_dir = "/tmp/vmon-crash";
   bool        enabled = true;            // 配置级总开关
+
+  // 常驻 CPU 采样（诊断版）。需要编译时打开 -DVMON_ENABLE_CPU_PROFILER=ON；
+  // 默认关闭，避免常驻采样影响生产。采样结果以 type=profile 上报。
+  bool     enable_cpu_profiler = false;
+  uint32_t cpu_sample_hz = 99;
+  uint32_t cpu_profile_flush_seconds = 10;
 };
 
 // 日志级别语义与原生日志一致；SDK 只提供分级与结构化字段。

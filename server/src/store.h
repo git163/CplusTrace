@@ -37,6 +37,8 @@ struct StoreConfig {
   uint64_t dedup_window_ns = 30ull * 1000000000ull;
   uint32_t dedup_max_per_window = 50;  // 0 表示不限制
   std::vector<std::string> noise_patterns;
+  // 同指纹告警在窗口内合并为一条事件（count/last_ns 递增）。
+  uint64_t event_group_window_ns = 300ull * 1000000000ull;
 };
 
 struct LogQuery {

@@ -13,6 +13,11 @@ endif()
 
 option(VMON_BUILD_TESTS "构建单元测试" ON)
 option(VMON_BUILD_EXAMPLES "构建示例程序" ON)
+# 常驻 CPU SIGPROF 采样默认关闭：需要诊断版构建时显式打开。
+option(VMON_ENABLE_CPU_PROFILER "启用常驻 CPU SIGPROF 采样" OFF)
+# eBPF / gRPC streaming 需要目标环境的内核头文件与 gRPC 版本，默认关闭。
+option(VMON_ENABLE_EBPF "启用 eBPF 弱边推断（Linux，需 libbpf）" OFF)
+option(VMON_ENABLE_GRPC "启用 gRPC streaming/异步拦截（需目标 gRPC）" OFF)
 
 set(VMON_THIRD_PARTY "${CMAKE_CURRENT_SOURCE_DIR}/third_party/src")
 set(VMON_JSON_INCLUDE
@@ -49,6 +54,21 @@ add_library(vmon STATIC
   adapters/grpc/propagation.cpp
 )
 
+if(VMON_ENABLE_CPU_PROFILER)
+  target_sources(vmon PRIVATE sdk/src/profiler/cpu_profiler.cpp)
+  target_compile_definitions(vmon PRIVATE VMON_ENABLE_CPU_PROFILER=1)
+  target_link_libraries(vmon PRIVATE ${CMAKE_DL_LIBS})
+  message(STATUS "CPU SIGPROF profiler: ON")
+endif()
+if(VMON_ENABLE_EBPF)
+  target_compile_definitions(vmon PUBLIC VMON_HAVE_EBPF=1)
+  message(STATUS "eBPF 弱边: ON（接口层，需 libbpf 与 Linux 内核实现 collector）")
+endif()
+if(VMON_ENABLE_GRPC)
+  target_compile_definitions(vmon PUBLIC VMON_HAVE_GRPC=1)
+  message(STATUS "gRPC streaming: ON（StreamingSpan 接口；interceptor 按目标 gRPC 接入）")
+endif()
+
 target_include_directories(vmon
   PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/sdk/include
   PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
@@ -72,6 +92,7 @@ add_library(vmon_agent_core STATIC
   agent/src/wal.cpp
   agent/src/uploader.cpp
   agent/src/process_scan.cpp
+  agent/src/probe.cpp
   agent/src/log_tail.cpp
   agent/src/metrics.cpp
   agent/src/control_client.cpp
@@ -102,15 +123,18 @@ add_library(vmon_server_core STATIC
   server/src/commands.cpp
   server/src/config.cpp
   server/src/crash.cpp
+  server/src/dashboard.cpp
   server/src/diagnostics.cpp
   server/src/evidence.cpp
   server/src/forwarder.cpp
+  server/src/issues.cpp
   server/src/log_cluster.cpp
   server/src/notifier.cpp
   server/src/pipeline.cpp
   server/src/profiler.cpp
   server/src/rules.cpp
   server/src/serialize.cpp
+  server/src/silence.cpp
   server/src/slo.cpp
   server/src/store.cpp
   server/src/trace_builder.cpp

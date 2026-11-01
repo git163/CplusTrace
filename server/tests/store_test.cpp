@@ -293,6 +293,37 @@ TEST(Store, EventsCanBeListedAndAcknowledged) {
   EXPECT_EQ("ack", store.list_events(10)[0].status);
 }
 
+TEST(Store, EventsAreGroupedByFingerprint) {
+  Store store;
+  vmon::server::EventRecord first;
+  first.id = "evt-1";
+  first.time_ns = 1000;
+  first.type = "alert";
+  first.fingerprint = "fp-1";
+  first.status = "open";
+  store.add_event(first);
+
+  vmon::server::EventRecord second = first;
+  second.id = "evt-2";
+  second.time_ns = 2000;
+  store.add_event(second);
+
+  auto events = store.list_events(10);
+  ASSERT_EQ(1u, events.size());
+  EXPECT_EQ("evt-1", events[0].id);
+  EXPECT_EQ(2u, events[0].count);
+  EXPECT_EQ(2000u, events[0].last_ns);
+
+  // 解决后同指纹事件重新开一条，而不是继续累加已关闭事件。
+  EXPECT_TRUE(store.resolve_event("evt-1"));
+  vmon::server::EventRecord third = first;
+  third.id = "evt-3";
+  third.time_ns = 3000;
+  store.add_event(third);
+  events = store.list_events(10);
+  EXPECT_EQ(2u, events.size());
+}
+
 TEST(Store, EventsCanBeFilteredAndResolved) {
   Store store;
   vmon::server::EventRecord open;

@@ -1,6 +1,7 @@
 #include "rules.h"
 
 #include <algorithm>
+#include <utility>
 
 #include "store.h"
 #include "util.h"
@@ -142,6 +143,11 @@ void RuleEngine::set_rules(const std::vector<Rule>& rules) {
   counters_.clear();
 }
 
+void RuleEngine::set_silence_matcher(SilenceMatcher matcher) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  silence_matcher_ = std::move(matcher);
+}
+
 std::string RuleEngine::make_event_id(const std::string& rule_id,
                                       const std::string& key,
                                       uint64_t window_ns, uint64_t now_ns) {
@@ -156,6 +162,16 @@ void RuleEngine::fire(const Rule& rule, const std::string& key,
                       const common::Event& source, Store* store,
                       uint64_t now_ns) {
   if (store == nullptr) return;
+
+  // 静默检查在冷却记录之前：静默期间不更新时间戳，静默结束后仍可正常告警。
+  SilenceMatcher matcher;
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    matcher = silence_matcher_;
+  }
+  if (matcher && matcher(rule, service, node, rule.severity, now_ns)) {
+    return;
+  }
 
   std::string event_id;
   {

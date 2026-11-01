@@ -133,6 +133,9 @@ nlohmann::json event_to_json(const EventRecord& event) {
   j["id"] = event.id;
   j["time_ns"] = event.time_ns;
   j["time"] = iso_time(event.time_ns);
+  j["last_ns"] = event.last_ns;
+  j["last_time"] = iso_time(event.last_ns == 0 ? event.time_ns : event.last_ns);
+  j["count"] = event.count;
   j["type"] = event.type;
   j["severity"] = event.severity;
   j["title"] = event.title;

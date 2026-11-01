@@ -7,6 +7,7 @@
 #include <vmon/vmon.h>
 
 #include "adapters/grpc/propagation.h"
+#include "adapters/grpc/streaming.h"
 #include "core/event.h"
 #include "core/thread_context.h"
 
@@ -58,6 +59,38 @@ TEST(Propagation, PublicHelperRestoresParentContext) {
   EXPECT_FALSE(context.valid);
   EXPECT_FALSE(vmon::context_from_traceparent(nullptr, &context));
   EXPECT_FALSE(vmon::context_from_traceparent(header.c_str(), nullptr));
+}
+
+TEST(Propagation, StreamingSpanUsesParentAndMarksError) {
+  vmon::Config config;
+  config.service_name = "stream-test";
+  config.instance_id = "stream-test-1";
+  config.enable_transport = false;
+  config.enable_control = false;
+  ASSERT_TRUE(vmon::init(config));
+  DrainEvents();
+
+  vmon::SpanContext parent;
+  const std::string header = vmon::adapters::make_traceparent(
+      0x1ull, 0x2ull, 0x3ull, true);
+  ASSERT_TRUE(vmon::context_from_traceparent(header.c_str(), &parent));
+
+  vmon::adapters::StreamingSpan stream;
+  stream.begin(parent, "Order/Stream");
+  EXPECT_TRUE(stream.active());
+  stream.message(128);
+  stream.error("E_STREAM");
+  stream.end();
+  EXPECT_FALSE(stream.active());
+
+  const std::vector<vmon::detail::Event> events = DrainEvents();
+  ASSERT_GE(events.size(), 2u);  // begin + end（debug 可能被级别过滤）
+  EXPECT_EQ(0x1ull, events.front().trace.hi);
+  EXPECT_EQ(0x3ull, events.front().parent_span);
+  ASSERT_NE(nullptr, events.back().error_code);
+  EXPECT_STREQ("E_STREAM", events.back().error_code);
+  vmon::shutdown();
+  DrainEvents();
 }
 
 TEST(Propagation, NotSampledFlagIsParsed) {
