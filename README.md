@@ -115,6 +115,16 @@ ctest --test-dir build --output-on-failure
 重启持久化、SIGSEGV 捕获上传、中心停止期间 WAL 缓存与恢复补传。
 未找到 Python3 时该测试自动跳过。
 
+生成源码发布包（约 400KB，不含三方依赖）：
+
+```bash
+./scripts/package.sh                 # 输出 dist/vmon-src-<时间戳>.tar.gz
+OUT_DIR=/tmp/release ./scripts/package.sh
+```
+
+> 压缩包、`build/`、`third_party/{downloads,src,bin}` 均不进入 git；
+> 三方依赖由 `scripts/download-third-party.sh` 按需下载，避免仓库膨胀。
+
 ### 3.3 本机管理 Server / Agent
 
 日常开发不需要记参数，用 `scripts/vmon.sh` 管理本地栈：

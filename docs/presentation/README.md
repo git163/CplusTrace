@@ -25,15 +25,28 @@ python3 -m venv .venv
 
 脚本会同时做结构自检：页数、形状越界、明显文字溢出。
 
-## 渲染与预览（可选）
+## 预览（不依赖 Office）
 
-安装 LibreOffice 后可导出 PDF 逐页检查：
+仓库自带一个近似渲染脚本，把每页导出为 PNG，适合快速检查中文、排版与溢出：
+
+```bash
+.venv/bin/python docs/presentation/render_preview.py \
+  docs/presentation/vmon-intro.pptx -o /tmp/vmon-preview
+```
+
+它只支持本项目用到的矩形、圆角矩形、椭圆、箭头、文本框与表格，属于“够用”
+的预览，最终效果以 PowerPoint / WPS 打开为准。
+
+如果本机已安装 LibreOffice，也可以导出 PDF：
 
 ```bash
 /Applications/LibreOffice.app/Contents/MacOS/soffice \
   --headless --convert-to pdf --outdir /tmp/vmon-ppt \
   docs/presentation/vmon-intro.pptx
 ```
+
+> 注意：部分 macOS 环境的 LibreOffice 无中文字体渲染能力，PDF 中可能丢字；
+> 此时优先用上面的 `render_preview.py`，或用 WPS/PowerPoint 打开 PPTX。
 
 ## 讲稿
 

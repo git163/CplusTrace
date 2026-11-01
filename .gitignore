@@ -10,6 +10,12 @@ cmake-build-*/
 /third_party/src/
 /third_party/bin/
 
+# 发布包（由 scripts/package.sh 生成，不进入 git）
+/dist/
+*.tar.gz
+*.tar.bz2
+*.zip
+
 # 本地运行状态与日志
 *.log
 *.sock
