@@ -6,7 +6,7 @@ C++ 系统（10–50 节点、50–200 进程），把「人工翻多机多进�
 > 输入 `request_id` / `trace_id` / `task_id` / 错误码 / 时间窗 → 自动还原调用链 →
 > 关联每个环节的日志与错误 → 给出可疑根因与证据包。
 
-- **使用手册（10 分钟上手）**：[docs/user-guide.md](docs/user-guide.md)
+- **完整用户手册（案例 + 截图 + 演示）**：[docs/user-guide.md](docs/user-guide.md)
 - **快速诊断与定位**：[docs/quick-diagnosis.md](docs/quick-diagnosis.md)
 - **常用场景手册**：[docs/scenario-cookbook.md](docs/scenario-cookbook.md)
 - **示例与演示指南（含截图）**：[examples/README.md](examples/README.md)

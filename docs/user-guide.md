@@ -198,7 +198,278 @@ curl -s -X POST -H "X-Vmon-Token: $TOKEN" \
 「崩溃」页显示信号、次数、节点、原因、build_id、二进制、pid；有 debuginfo
 时显示符号化栈，否则回退地址。崩溃同时进入事件中心，可被规则/Issue 聚合。
 
-## 3. Web UI 速查
+## 3. 完整案例
+
+> 下列 ID、耗时来自真实 demo 运行，**每次运行会变化**，以脚本打印/页面显示为准；
+> 数值用于说明「应该看到什么」。先把脚本打印的地址设为变量：
+
+```bash
+BASE=http://127.0.0.1:<脚本打印的端口>
+TOKEN=demo-token
+```
+
+> 所有带 `--keep` 的 demo 请在终端 A 保持运行，下面的 curl/查询在终端 B 执行；
+> 按 Ctrl+C 结束 demo 后栈会清理。
+
+| 案例 | 场景 | 关键视图 |
+|---|---|---|
+| 1 | 跨语言错误请求 | 调用链 + 日志 + 诊断 + 证据包 + 异常 |
+| 2 | 慢调用 | 关键路径 + 瀑布图 + 火焰图 |
+| 3 | 日志风暴 | 日志检索 + 模板聚类 + 采样/去重 |
+| 4 | 接口不可用 | 可用性拨测 + 指标 |
+| 5 | 进程崩溃 | 崩溃页 + 事件中心 |
+| 6 | 复盘交接 | 仪表板 + 快照 |
+
+### 案例 1：一次跨语言错误请求的完整排障
+
+**场景**：Python 服务调用 C++ 后端，后端返回 500。
+
+```bash
+python3 examples/scenarios/demo.py --scenario error --keep
+```
+
+脚本打印的示例输入：
+
+```
+request_id = demo-error-1793575660233
+trace_id   = 7e22ecdec4d072496a1f92ab77eb7d15
+services   = demo-python, http-backend
+duration   = 16.3 ms
+```
+
+**第 1 步：按 request_id 收口**
+
+```bash
+curl -s -H "X-Vmon-Token: demo-token" \
+  "$BASE/api/requests/demo-error-1793575660233"
+```
+
+返回的 summary 应类似：
+
+```json
+{
+  "span_count": 2,
+  "service_count": 2,
+  "depth": 2,
+  "has_error": true,
+  "error_code": "E_HTTP_500",
+  "duration_ms": 16.3
+}
+```
+
+**第 2 步：看 Span 树与首个错误**
+
+![调用链详情](../examples/screenshots/02-trace.png)
+
+示例 Span：
+
+| 服务 | Span | 耗时 | 错误码 | 关系 |
+|---|---|---|---|---|
+| `demo-python` | `Python/CallErrorBackend` | 16.3 ms | `E_HTTP_500` | 根（client） |
+| `http-backend` | `HTTP/echo` | 16.0 ms | `E_ECHO` | 子（server） |
+
+解释：
+
+- Python 侧把 HTTP 500 标记为 `E_HTTP_500`；
+- C++ 后端在业务里 `set_error("E_ECHO")`；
+- 两者在同一条 trace 中，`first_error` 通常是先结束的 client span，
+  `slowest_span` 可用于确认耗时在服务端还是客户端。
+
+**第 3 步：关联日志**
+
+搜索同一个 request_id，示例日志：
+
+```
+error  http backend forced error request_id=demo-error-1793575660233
+info   http backend handled request_id=demo-error-1793575660233
+```
+
+日志自动带 `trace_id`、`span_id`、`request_id`，不需要手工对齐。
+
+**第 4 步：一键诊断**
+
+```bash
+curl -s -H "X-Vmon-Token: demo-token" -H 'Content-Type: application/json' \
+  -d '{"request_id":"demo-error-1793575660233"}' \
+  "$BASE/api/diagnose"
+```
+
+示例结论：
+
+```json
+{
+  "verdict": "business_error",
+  "first_error": {"service": "demo-python", "name": "Python/CallErrorBackend",
+                  "error_code": "E_HTTP_500"},
+  "hypotheses": [{"title": "业务错误码 E_HTTP_500"}],
+  "checks": [{"id": "nodes_online", "status": "ok"}, ...]
+}
+```
+
+**第 5 步：生成证据包**
+
+```bash
+curl -s -H "X-Vmon-Token: demo-token" -H 'Content-Type: application/json' \
+  -d '{"incident":"INC-DEMO-001","request_id":"demo-error-1793575660233"}' \
+  "$BASE/api/evidence"
+```
+
+示例返回：
+
+```json
+{
+  "ok": true,
+  "id": "239d0c2f75f1",
+  "dir": "/tmp/.../evidence-INC-DEMO-001-...",
+  "files": ["manifest.json", "timeline.json", "request.json",
+            "metrics.json", "logs.jsonl", "profiles/", "dumps/",
+            "index.jsonl", "hypotheses.md"]
+}
+```
+
+先看 `request.json`（链路）和 `timeline.json`（告警/发布/崩溃时间线），
+再按需查看日志与指标；`manifest.json` 带每个文件的 SHA-256 与脱敏规则。
+
+**第 6 步：进入异常追踪**
+
+「异常」页会出现类似：
+
+```
+级别   error
+服务   http-backend
+次数   1
+标题   http backend forced error request_id=<var>
+样本   http backend forced error request_id=demo-error-...
+```
+
+![异常追踪](../examples/screenshots/03-issues.png)
+
+处理：
+
+```bash
+curl -s -H "X-Vmon-Token: demo-token" -H 'Content-Type: application/json' \
+  -d '{"status":"ack","assignee":"alice","note":"排查中"}' \
+  "$BASE/api/issues/<issue_id>"
+```
+
+### 案例 2：慢调用与火焰图
+
+```bash
+python3 examples/scenarios/demo.py --scenario slow --keep
+```
+
+示例输入：`demo-slow-1793543987304`，后端 sleep 800ms。
+
+预期：
+
+- `slowest_span` 为 Python 客户端 Span（约 809ms）；
+- 子 Span `http-backend/HTTP/echo` 约 808ms；
+- `critical_path` = `demo-python/Python/CallSlowBackend → http-backend/HTTP/echo`；
+- 瀑布图里后端条占主要宽度。
+
+如果慢在本地代码，进入「剖析 → 火焰图」：
+
+![剖析火焰图](../examples/screenshots/05-flamegraph.png)
+
+- 色块宽度 = 样本占比；
+- 点击 `parse` 放大，看到 `decode 66.7%`、`validate 33.3%`；
+- 「全部」返回根视图；
+- 悬停显示函数、样本数与占比。
+
+> 示例剖析数据来自 `/v1/profile` 导入的折叠栈；诊断版可开启可选 CPU SIGPROF 采样。
+
+### 案例 3：日志风暴下的降噪
+
+```bash
+python3 examples/scenarios/demo.py --scenario logstorm --keep
+```
+
+脚本发送 200 条 info + 20 条 error。预期：
+
+- 「日志聚类」出现两个模板：
+  - `demo tick <num>`（info，约 200 次）
+  - `demo storm failure code=<var>`（error，约 20 次）
+- 「日志」页可按 `request_id`、服务、级别、仅错误过滤；
+- 总览显示 `采样 / 去重 / 噪声` 计数；重复模板被合并，避免刷屏。
+
+![日志聚类](../examples/screenshots/07-clusters.png)
+
+### 案例 4：可用性拨测 UP / DOWN
+
+启动一个带拨测的 Agent：
+
+```bash
+vmon_agent ... --probe \
+  'demo-api=http://127.0.0.1:19090/health;interval_ms=1000;timeout_ms=1000'
+```
+
+正常时：
+
+```bash
+curl -s -H "X-Vmon-Token: demo-token" \
+  "$BASE/api/probes"
+```
+
+```json
+{"count":1,"probes":[{"name":"demo-api","up":true,
+  "url":"http://127.0.0.1:19090/health","status":"200"}]}
+```
+
+停掉目标服务后，下一次拨测变成：
+
+```json
+{"name":"demo-api","up":false,"status":"0","error":"request failed"}
+```
+
+总览的「可用性拨测」会显示 DOWN；指标页可查 `probe.up` 时间序列，
+规则可基于 `probe.up < 1` 配置告警。
+
+### 案例 5：崩溃与事件
+
+```bash
+python3 examples/scenarios/demo.py --scenario crash --keep
+```
+
+示例输出：
+
+```
+进程退出码：139
+2026-11-01T... SIGSEGV ×1 node=demo-node reason=signal-handler
+```
+
+「崩溃」页可看信号、次数、节点、原因、build_id、二进制与 pid；
+有 debuginfo 时显示符号化栈，否则显示地址。崩溃同时进入「事件」，
+可被规则/Issue 聚合。
+
+### 案例 6：仪表板与快照
+
+```bash
+python3 examples/scenarios/demo.py --scenario all --keep
+```
+
+创建仪表板：
+
+```bash
+curl -s -H "X-Vmon-Token: demo-token" -H 'Content-Type: application/json' \
+  -d '{"id":"dash-1","name":"值班看板","widgets":[
+       {"type":"metric","title":"负载","metric":"host.load1"},
+       {"type":"traces","title":"链路"},
+       {"type":"logs","title":"错误模板","limit":5}]}' \
+  "$BASE/api/dashboards"
+```
+
+![仪表板](../examples/screenshots/04-dashboard.png)
+
+「生成快照」后：
+
+```bash
+curl -s -X POST -H "X-Vmon-Token: demo-token" \
+  "$BASE/api/dashboards/dash-1/snapshot"
+```
+
+快照只读，可回看当时指标、链路和日志模板，适合复盘/交接。
+
+## 4. Web UI 速查
 
 | 视图 | 用途 |
 |---|---|
@@ -219,9 +490,9 @@ curl -s -X POST -H "X-Vmon-Token: $TOKEN" \
 | 诊断 | 诊断、证据包、动态级别、命令记录 |
 | 规则 | 规则表单/JSON、告警静默 |
 
-## 4. 接入
+## 5. 接入
 
-### 4.1 C++（L0–L2）
+### 5.1 C++（L0–L2）
 
 ```cpp
 #include <vmon/vmon.h>
@@ -252,7 +523,7 @@ vmon_attach(your_target)
 
 L0 只部署 Agent；L1 接 SDK/日志宏；L2 在关键函数加 `VMON_SPAN`。
 
-### 4.2 Python / Web
+### 5.2 Python / Web
 
 ```python
 from vmon_trace import Client
@@ -270,7 +541,7 @@ client.close()
 浏览器不要直连中心写接口，事件经 BFF 汇总。
 详见 [client-observability.md](client-observability.md)。
 
-## 5. 查询 / CLI / MCP
+## 6. 查询 / CLI / MCP
 
 ```bash
 # 调用链统一搜索
@@ -306,7 +577,7 @@ MCP（内部只读）：
  "args":["--server","http://127.0.0.1:18428","--token","<token>"]}}}
 ```
 
-## 6. 常见问题
+## 7. 常见问题
 
 | 现象 | 原因与处理 |
 |---|---|
@@ -321,7 +592,7 @@ MCP（内部只读）：
 | 拨测一直 DOWN | 检查 URL 是否 http://、目标是否从 Agent 节点可达、超时设置 |
 | 仪表板指标空 | 指标名是否正确、Agent 是否已上报 |
 
-## 7. 数据边界与安全
+## 8. 数据边界与安全
 
 - 中心 Store 为有界内存存储，重启清空；长期存储通过 forwarder 接 VM/VL。
 - Agent WAL 断网续传，容量上限与丢弃策略可配置。
@@ -329,7 +600,7 @@ MCP（内部只读）：
 - 证据包与 MCP 属于内部能力，对外发行版应关闭。
 - 诊断只执行白名单只读命令；写操作需显式确认与审计。
 
-## 8. 示例与进阶
+## 9. 示例与进阶
 
 - [examples/README.md](../examples/README.md)：示例目录、截图导览、手动验证；
 - [scenario-cookbook.md](scenario-cookbook.md)：常用场景步骤；
