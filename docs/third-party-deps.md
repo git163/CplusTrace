@@ -12,6 +12,7 @@
 4. **重依赖全部外置**：SQLite、HTTP、压缩、正则、符号化、eBPF 等只出现在独立的 Agent / Server 进程中。
 5. **默认不引入 Grafana**（AGPL-3.0）；自研请求级排障 UI + uPlot（MIT）替代。
 6. 所有下载物锁定版本、记录 SHA256、保留 LICENSE/NOTICE，并纳入 `third_party/deps.tsv` 清单。
+7. `third_party/src` 源码已入库，clone 后可离线构建；`third_party/downloads` 与 `third_party/bin` 体积大，按平台用 `scripts/download-third-party.sh` 下载，不进入 git。
 
 > 以下版本为 2026-11-01 查询到的最新稳定版，仅作为下载起点。最终版本必须以目标系统的 OS、glibc、gRPC 版本和编译器能力为准。
 

@@ -139,8 +139,8 @@ WAL 缓存与恢复补传。
 OUT_DIR=/tmp/release ./scripts/package.sh
 ```
 
-> 压缩包、`build/`、`third_party/{downloads,src,bin}` 均不进入 git；
-> 三方依赖由 `scripts/download-third-party.sh` 按需下载，避免仓库膨胀。
+> 压缩包与 `build/` 不进入 git；`third_party/src` 已入库，clone 后可直接离线构建；
+> `third_party/{downloads,bin}` 体积大，由 `scripts/download-third-party.sh` 按平台下载。
 
 ### 3.3 本机管理 Server / Agent
 
