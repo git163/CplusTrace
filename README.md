@@ -71,7 +71,7 @@ C++ 系统（10–50 节点、50–200 进程），把「人工翻多机多进�
 - 异常追踪 Issue（聚合、指派、ack/resolve）与告警静默/事件分组；
 - HTTP 可用性拨测（up/duration/status 指标 + 总览展示）；
 - 仪表板与只读快照（指标/链路/日志 widget）；
-- 可选 CPU SIGPROF 采样（编译选项 `VMON_ENABLE_CPU_PROFILER`）；
+- 可选 CPU SIGPROF 采样（编译选项 `VMON_ENABLE_CPU_PROFILER`）；SVG 条形火焰图（点击放大）；
 - 常用场景 demo（RPC/慢调用/错误/日志风暴/SLO/崩溃）与快速诊断手册；
 - Web UI 16 个视图完成真实浏览器回归。
 

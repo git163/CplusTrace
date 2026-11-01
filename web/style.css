@@ -236,3 +236,49 @@ a { color: var(--accent); }
 .slo-warning { color: var(--warn); }
 .slo-critical { color: var(--error); }
 .slo-unknown { color: var(--muted); }
+
+/* SVG 火焰图 */
+.flame-chart {
+  background: #0d1420;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px;
+  overflow-x: auto;
+}
+.flame-svg {
+  display: block;
+  width: 100%;
+  min-width: 720px;
+  height: auto;
+}
+.flame-node {
+  cursor: pointer;
+}
+.flame-node rect {
+  transition: fill-opacity 0.12s ease, stroke 0.12s ease;
+}
+.flame-node:hover rect {
+  fill-opacity: 1;
+  stroke: #ffffff;
+  stroke-width: 1;
+}
+.flame-label {
+  fill: #f8fafc;
+  font-size: 10px;
+  font-family: var(--mono);
+  pointer-events: none;
+}
+.flame-crumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+.flame-crumbs button {
+  padding: 2px 8px;
+  font-size: 11px;
+}
+.flame-sep { color: var(--muted); }
+.flame-hint { margin-left: auto; font-size: 11px; }

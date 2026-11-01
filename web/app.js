@@ -1056,8 +1056,18 @@
       button.addEventListener("click", async () => {
         try {
           const detail = await api("/api/profiles/" + encodeURIComponent(button.getAttribute("data-profile")));
-          $("flame-" + detail.id).innerHTML =
-            '<div class="panel"><h3>火焰图（样本数）</h3>' + flameTree(detail.flamegraph) + "</div>";
+          const container = $("flame-" + detail.id);
+          container.innerHTML =
+            '<div class="panel"><h3>火焰图（样本数）' +
+            ' <span class="muted">点击色块放大 · 悬停看占比</span></h3>' +
+            '<div class="flame-chart" id="flamechart-' +
+            esc(detail.id) +
+            '"></div></div>';
+          renderFlameChart(
+            document.getElementById("flamechart-" + detail.id),
+            detail.flamegraph,
+            []
+          );
         } catch (err) {
           toast(err.message);
         }
@@ -1065,18 +1075,137 @@
     });
   }
 
-  function flameTree(node) {
-    if (!node) return "";
-    const children = (node.children || []).map(flameTree).join("");
-    return (
-      '<details open><summary>' +
-      esc(node.name) +
-      " · " +
-      esc(node.value) +
-      "</summary>" +
-      (children ? '<div style="padding-left:14px">' + children + "</div>" : "") +
-      "</details>"
-    );
+  // SVG 火焰图：按样本数计算矩形宽度，按调用深度分行。
+  // 点击色块放大到该子树，面包屑/“全部”返回；悬停显示样本数与占比。
+  const FLAME_COLORS = [
+    "#3b82f6", "#0ea5a4", "#f59e0b", "#ef4444", "#8b5cf6",
+    "#06b6d4", "#84cc16", "#ec4899", "#6366f1", "#14b8a6",
+    "#f97316", "#eab308",
+  ];
+
+  function flameColor(name) {
+    let hash = 2166136261;
+    const text = String(name || "");
+    for (let i = 0; i < text.length; ++i) {
+      hash ^= text.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return FLAME_COLORS[(hash >>> 0) % FLAME_COLORS.length];
+  }
+
+  function flameLayout(root) {
+    const total = Math.max(1, Number(root && root.value) || 0);
+    const rows = [];
+    let maxDepth = 0;
+    const visit = (node, depth, x, width) => {
+      if (!node || width < 0.35) return;
+      rows.push({ node: node, depth: depth, x: x, width: width });
+      if (depth > maxDepth) maxDepth = depth;
+      const children = (node.children || [])
+        .filter((child) => child && Number(child.value) > 0)
+        .slice()
+        .sort((a, b) => Number(b.value) - Number(a.value));
+      let cursor = x;
+      for (const child of children) {
+        const share = Number(child.value) / Math.max(1, Number(node.value));
+        const childWidth = width * share;
+        visit(child, depth + 1, cursor, childWidth);
+        cursor += childWidth;
+      }
+    };
+    visit(root, 0, 0, 1000);
+    return { rows: rows, maxDepth: maxDepth, total: total };
+  }
+
+  function renderFlameChart(container, root, trail) {
+    if (!container || !root) return;
+    const current = trail.length ? trail[trail.length - 1] : root;
+    const layout = flameLayout(current);
+    const rowHeight = 22;
+    const barHeight = 19;
+    const height = (layout.maxDepth + 1) * rowHeight + 4;
+    const currentTotal = Math.max(1, Number(current.value) || 0);
+
+    let crumbs = '<button data-flame-crumb="-1">全部</button>';
+    trail.forEach((node, index) => {
+      crumbs +=
+        '<span class="flame-sep">/</span><button data-flame-crumb="' +
+        index +
+        '">' +
+        esc(node.name) +
+        "</button>";
+    });
+
+    let svg =
+      '<svg class="flame-svg" viewBox="0 0 1000 ' +
+      height +
+      '" preserveAspectRatio="xMinYMin meet" role="img" aria-label="火焰图">';
+    layout.rows.forEach((row, index) => {
+      const y = row.depth * rowHeight + 2;
+      const width = Math.max(0.5, row.width);
+      const node = row.node;
+      const samples = Number(node.value) || 0;
+      const percent = ((samples / currentTotal) * 100).toFixed(1);
+      const color = row.depth === 0 ? "#1d4ed8" : flameColor(node.name);
+      const label =
+        width > 42
+          ? esc(String(node.name || "?").slice(0, Math.floor(width / 6)))
+          : "";
+      svg +=
+        '<g class="flame-node" data-flame-idx="' +
+        index +
+        '"><title>' +
+        esc(node.name || "?") +
+        " · " +
+        samples +
+        " 样本 · " +
+        percent +
+        "%</title>" +
+        '<rect x="' +
+        row.x.toFixed(2) +
+        '" y="' +
+        y +
+        '" width="' +
+        width.toFixed(2) +
+        '" height="' +
+        barHeight +
+        '" rx="2" fill="' +
+        color +
+        '" fill-opacity="0.9" stroke="#0b1220" stroke-width="0.6"/>';
+      if (label) {
+        svg +=
+          '<text x="' +
+          (row.x + 4).toFixed(2) +
+          '" y="' +
+          (y + 13) +
+          '" class="flame-label">' +
+          label +
+          "</text>";
+      }
+      svg += "</g>";
+    });
+    svg += "</svg>";
+
+    container.innerHTML =
+      '<div class="flame-crumbs">' +
+      crumbs +
+      '<span class="muted flame-hint">宽 = 样本占比 · 点击放大</span></div>' +
+      svg;
+
+    container.querySelectorAll("[data-flame-idx]").forEach((group) => {
+      group.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const row = layout.rows[Number(group.getAttribute("data-flame-idx"))];
+        if (!row || !(row.node.children || []).length) return;
+        renderFlameChart(container, root, trail.concat([row.node]));
+      });
+    });
+    container.querySelectorAll("[data-flame-crumb]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const index = Number(button.getAttribute("data-flame-crumb"));
+        renderFlameChart(container, root, index < 0 ? [] : trail.slice(0, index + 1));
+      });
+    });
   }
 
   // ------------------------------------------------------------ 指标
