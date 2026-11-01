@@ -7,6 +7,25 @@
 
 前提：已按 [README](../README.md) 构建出 `build/`。
 
+**日常最常用的是本地栈脚本**（启动、停止、查看状态都只需要一条命令）：
+
+```bash
+./scripts/vmon.sh up        # 启动 Server + Agent
+./scripts/vmon.sh status    # 看进程、健康检查、日志路径
+./scripts/vmon.sh logs agent -f
+./scripts/vmon.sh down      # 停止
+```
+
+`up` 成功后会打印 Web UI 地址（默认 `http://127.0.0.1:18428/`）和令牌
+（默认 `dev-token`）。想改端口或目录：
+
+```bash
+PORT=19428 VMON_TOKEN=mytoken VMON_HOME=/tmp/vmon \
+  ./scripts/vmon.sh up
+```
+
+只想看“一条完整请求长什么样”，用一条命令的演示脚本：
+
 ```bash
 ./examples/hello/run_demo.sh
 ```

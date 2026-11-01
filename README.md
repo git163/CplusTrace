@@ -9,6 +9,8 @@ C++ 系统（10–50 节点、50–200 进程），把「人工翻多机多进�
 - **使用手册（10 分钟上手）**：[docs/user-guide.md](docs/user-guide.md)
 - 设计方案：[plan_v1.0.md](plan_v1.0.md)
 - 本轮能力补齐设计：[docs/feature-gap-design.md](docs/feature-gap-design.md)
+- Web/Python 客户端接入设计：[docs/client-observability.md](docs/client-observability.md)
+- 项目介绍 PPT：[docs/presentation/](docs/presentation/)
 - 竞品对照与取舍：[docs/competitive-analysis.md](docs/competitive-analysis.md)
 - Web UI 浏览器回归记录：[docs/ui-test-report.md](docs/ui-test-report.md)
 - 生产零影响约束：[docs/production-safety.md](docs/production-safety.md)
@@ -113,7 +115,25 @@ ctest --test-dir build --output-on-failure
 重启持久化、SIGSEGV 捕获上传、中心停止期间 WAL 缓存与恢复补传。
 未找到 Python3 时该测试自动跳过。
 
-### 3.3 本机跑通一条链路
+### 3.3 本机管理 Server / Agent
+
+日常开发不需要记参数，用 `scripts/vmon.sh` 管理本地栈：
+
+```bash
+./scripts/vmon.sh up        # 启动 Server + Agent，等待健康检查通过
+./scripts/vmon.sh status    # 查看进程、健康检查、UDS、日志路径
+./scripts/vmon.sh logs agent -f
+./scripts/vmon.sh restart
+./scripts/vmon.sh down      # 优雅停止；5 秒未退出才强制结束
+./scripts/vmon.sh clean     # 停止并删除运行目录（需 FORCE=1）
+```
+
+常用环境变量：`PORT`（默认 18428）、`VMON_TOKEN`（默认 dev-token）、
+`VMON_HOME`（默认 `.vmon-run`）、`NODE_NAME`、`PROCESS_FILTER`。
+脚本只操作自己 PID 文件里的进程，不会按进程名误杀。运行目录下有
+`server.log`、`agent.log`、`server/`、`agent/`（WAL 与状态）。
+
+### 3.4 本机跑通一条链路
 
 最简方式是一条命令（自动启动 Server + Agent + 示例进程，查询到数据后清理）。
 完整的日常用法见 [docs/user-guide.md](docs/user-guide.md)。
@@ -243,7 +263,7 @@ CplusTrace/
 ├── deploy/         # 示例配置、systemd、tmpfiles
 ├── tests/          # 单元测试与端到端测试
 ├── docs/           # 设计约束、依赖、部署、验收
-└── scripts/        # 三方依赖下载与清单生成
+└── scripts/        # 本地栈管理（vmon.sh）与三方依赖下载
 ```
 
 ## 7. 平台与安全约束

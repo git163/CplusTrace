@@ -2,6 +2,8 @@
 /build/
 build-*/
 cmake-build-*/
+/.venv/
+.vmon-run/
 
 # 三方下载、解压与二进制（由 scripts/download-third-party.sh 获取）
 /third_party/downloads/
