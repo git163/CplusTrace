@@ -1,172 +1,258 @@
 # vmon 使用手册
 
-> 面向第一次接触本系统的人。目标：**10 分钟内启动、查清一条请求、定位一个错误**。
-> 部署、权限、systemd、core_pattern 等运维细节见 [deployment.md](deployment.md)。
->
-> 想直接看「怎么快速定位」：读 [quick-diagnosis.md](quick-diagnosis.md)。
-> 想按场景跑 demo：读 [scenario-cookbook.md](scenario-cookbook.md)。
+> 面向第一次接触本系统的人：**从启动、看第一条链路，到定位错误、处理告警、导出证据**。
+> 部署、权限、systemd、core_pattern 等运维细节见 [deployment.md](deployment.md)；
+> 快速定位方法见 [quick-diagnosis.md](quick-diagnosis.md)；
+> 更多场景见 [scenario-cookbook.md](scenario-cookbook.md) 与
+> [examples/README.md](../examples/README.md)（含截图）。
 
-## 1. 三分钟跑起来（本机演示）
+## 1. 五分钟上手
 
 前提：已按 [README](../README.md) 构建出 `build/`。
 
-**日常最常用的是本地栈脚本**（启动、停止、查看状态都只需要一条命令）：
+### 1.1 启动本地栈
 
 ```bash
 ./scripts/vmon.sh up        # 启动 Server + Agent
-./scripts/vmon.sh status    # 看进程、健康检查、日志路径
+./scripts/vmon.sh status    # 进程、健康检查、UDS、日志路径
 ./scripts/vmon.sh logs agent -f
-./scripts/vmon.sh down      # 停止
+./scripts/vmon.sh down
 ```
 
-`up` 成功后会打印 Web UI 地址（默认 `http://127.0.0.1:18428/`）和令牌
-（默认 `dev-token`）。想改端口或目录：
+默认地址 `http://127.0.0.1:18428/`，令牌 `dev-token`。改端口/目录：
 
 ```bash
 PORT=19428 VMON_TOKEN=mytoken VMON_HOME=/tmp/vmon \
   ./scripts/vmon.sh up
 ```
 
-只想看“一条完整请求长什么样”，用一条命令的演示脚本：
+### 1.2 造一条真实请求
 
 ```bash
+# 最小示例：两个请求，一个失败、一个成功
 ./examples/hello/run_demo.sh
-```
 
-想看跨语言、慢调用、错误、日志风暴、SLO、崩溃等常用场景：
-
-```bash
+# 常用场景：RPC / 慢调用 / 错误 / 日志风暴 / SLO / 崩溃
 python3 examples/scenarios/demo.py --scenario all --keep
 ```
 
-脚本会启动真实 Server/Agent/HTTP 后端并造数据，打印 trace_id、request_id
-和 Web/CLI 查看方式。场景说明见 [scenario-cookbook.md](scenario-cookbook.md)。
+`--keep` 会保留栈，脚本打印 Web UI 地址、令牌、trace_id、request_id 和
+CLI 命令；按 Ctrl+C 结束。
 
-脚本自动完成：启动 Server → 启动 Agent → 运行示例业务进程 → 按 `request_id`
-查询并打印 trace 与日志 → 清理。
+### 1.3 打开总览
 
-想自己打开 Web UI 看看：
+![运行总览](../examples/screenshots/01-overview.png)
+
+先看：节点、服务、QPS、错误率、P95/P99、最近慢调用、错误模板、可用性拨测。
+有 `fail` 或错误率升高时，按下面场景进入。
+
+## 2. 场景化教程
+
+### 2.1 请求失败：从 request_id 到首个错误
+
+**输入**：业务请求号、trace_id 或 task_id。
+
+1. 打开「调用链」，搜索 `request_id` / `trace_id` / 服务名 / 错误码；
+2. 勾选「仅错误」或填最小耗时收敛；
+3. 打开一条 trace，看：
+
+![调用链详情](../examples/screenshots/02-trace.png)
+
+- **首个错误**：哪个服务、哪个 Span、错误码；
+- **Span 树**：父子关系与跨进程跳转；
+- **关键路径**：最慢的一条链路；
+- **瀑布图**：每个阶段耗时；
+- **关联日志**：不需要手工对齐时间。
+
+4. 需要更多上下文时：「诊断」页填 request_id，执行诊断：
+
+![一键诊断](../examples/screenshots/11-diagnose.png)
+
+5. 需要复盘/交接时，生成证据包（脱敏 + SHA-256）。
 
 ```bash
-DEMO_KEEP=1 ./examples/hello/run_demo.sh
-# 按脚本打印的地址打开，例如 http://127.0.0.1:18429/
-# 令牌就是脚本使用的 token（默认 demo-token）
+BASE=http://127.0.0.1:18428; TOKEN=dev-token
+curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/requests/REQ-1"
+curl -s -H "X-Vmon-Token: $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"request_id":"REQ-1"}' "$BASE/api/diagnose"
 ```
 
-> Web UI 左上角的「令牌」输入框必须与服务端 `--token` 一致，否则所有查询都会提示
-> 「未授权」。令牌只存在浏览器 localStorage，不上传。
+### 2.2 请求变慢：关键路径与火焰图
 
-## 2. 真实环境怎么部署
+1. 「调用链」按服务 + 最小耗时过滤，打开最慢 trace；
+2. 看 `slowest_span` 与关键路径；
+3. 如果慢在本地代码，打开「剖析」→「火焰图」：
 
-| 角色 | 做什么 | 一条命令（示意） |
-|---|---|---|
-| 中心 | 一台机器跑 `vmon_server` | `vmon_server --port 18428 --token <token> --state-dir /var/lib/vmon/server --web-dir /opt/vmon/web --no-forward` |
-| 节点 | 每台业务机跑一个 `vmon_agent` | `vmon_agent --server-url http://<中心>:18428 --uds /run/vmon/agent.sock --state-dir /var/lib/vmon/agent --node <节点名> --token <token>` |
-| 业务进程 | 链接 SDK，指向 Agent 的 UDS | 见 [README 第 4 节](../README.md#4-业务接入) |
+![剖析火焰图](../examples/screenshots/05-flamegraph.png)
 
-Agent 与业务进程不在同一用户时，把双方加入同一个组，并保证 UDS 目录 `0770`、
-socket `0660`。完整清单见 [deployment.md](deployment.md)。
+- 宽度 = 样本占比；点击色块放大，悬停看占比；「全部」返回；
+- 需要常驻 CPU 采样时，用诊断版构建：
+  `cmake -DVMON_ENABLE_CPU_PROFILER=ON`，业务侧 `enable_cpu_profiler=true`。
 
-## 3. 第一次排障：从一个错误开始
+### 2.3 日志太多：检索与聚类
 
-### 3.1 打开总览，先看「有没有事」
+「日志」页支持 trace / request / task / 服务 / 节点 / 级别 / 文本 / 仅错误 /
+时间窗：
 
-`http://<中心>:<端口>/` → 总览：
+![日志检索](../examples/screenshots/06-logs.png)
 
-- KPI：节点数、在线 Agent、服务/实例、近 5 分钟 QPS、错误率、P95/P99；
-- 最近慢调用、错误日志模板 Top 5、最近事件；
-- 「执行巡检」给出 `ok / warn / fail` 清单（节点、错误率、慢调用、错误日志、
-  崩溃、时钟偏差、磁盘）。
+「日志聚类」按模板聚合（`<var>` 表示变化部分），先看次数最多和 error 模板，
+再点指纹下钻：
 
-巡检出现 `fail` 或错误率升高时，按下面的顺序下钻。
+![日志聚类](../examples/screenshots/07-clusters.png)
 
-### 3.2 用调用链接管一条请求
+```bash
+curl -s -H "X-Vmon-Token: $TOKEN" \
+  "$BASE/api/logs?request_id=REQ-1&errors_only=1&limit=50"
+curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/logs/clusters?limit=20"
+```
 
-进入「调用链」：
+### 2.4 重复错误：异常追踪 Issue
 
-1. 搜索框输入任意一项：`trace_id`、`request_id`、`task_id`、服务名、Span 名、
-   错误码，甚至 `error`、`50ms` 这类关键词。搜索是**忽略大小写的子串匹配**。
-2. 勾选「仅错误」、填写最小耗时，可以快速收敛。
-3. 点击一条 trace，右侧展示：
-   - **Span 树**：父子层级、每个 Span 的服务/实例/节点/耗时/状态；
-   - **瀑布图**：以 trace 起点为基准的时间条，未结束的 Span 标注「进行中」；
-   - **关键路径**：最慢的一条链路；
-   - **首个错误**：第一个 `error` 状态的 Span 及错误码；
-   - **关联日志**：自动带上该 trace 的日志，点击可继续看上下文。
+「异常」页把错误日志模板与崩溃指纹聚合成 Issue：
 
-> 跨进程链路：父进程把 `trace_id`/`span_id` 通过 `vmon::SpanContext` 传给子进程，
-> 子进程用 `create_span_with_parent` 续接，就能在同一个 trace 里看到两个服务。
+![异常追踪](../examples/screenshots/03-issues.png)
 
-### 3.3 看日志，但不要被日志淹没
+- 看次数、服务、样本、关联 trace；
+- 「确认」→ 状态 ack；「指派」填负责人；「解决」→ resolved；
+- API：
 
-「日志」页支持：
+```bash
+curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/issues?status=open"
+curl -s -H "X-Vmon-Token: $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"status":"ack","assignee":"alice","note":"排查中"}' \
+  "$BASE/api/issues/<id>"
+```
 
-| 过滤 | 用途 |
+### 2.5 告警太吵：事件、静默与分组
+
+「事件」页统一展示告警、崩溃、发布等事件：
+
+![事件中心](../examples/screenshots/09-events.png)
+
+- 同指纹、未解决事件在 5 分钟窗口内合并，显示次数与最近时间；
+- 发布/维护期间可在「规则 → 告警静默」创建静默：
+
+![规则与静默](../examples/screenshots/12-rules.png)
+
+```bash
+curl -s -H "X-Vmon-Token: $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"name":"发布窗口","service":"order","duration_minutes":30,"reason":"升级"}' \
+  "$BASE/api/silences"
+```
+
+### 2.6 接口不可用：可用性拨测
+
+Agent 增加 `--probe`，周期访问关键接口：
+
+```bash
+vmon_agent ... --probe \
+  'order-api=http://127.0.0.1:9000/health;interval_ms=30000;timeout_ms=3000;status=200'
+```
+
+指标：`probe.up`、`probe.duration_ms`、`probe.status_code`；
+总览「可用性拨测」显示 UP/DOWN，指标页可按名字查询，规则可基于 `probe.up` 配置。
+
+```bash
+curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/probes"
+```
+
+### 2.7 影响面：服务拓扑
+
+![服务拓扑](../examples/screenshots/08-topology.png)
+
+- 强边来自显式传播，进入 Span 树结论；
+- 弱边带 `confidence`，只进拓扑，不污染调用链；
+- 表格可看 caller/callee/method/count/error/avg/max。
+
+### 2.8 目标与容量：SLO
+
+![SLO 与错误预算](../examples/screenshots/10-slo.png)
+
+- 可用性型：窗口内无错误 trace 比例；
+- 延迟型：窗口内耗时不超过阈值的比例；
+- 看 SLI、错误预算剩余、燃烧率、状态（healthy/warning/critical/unknown）。
+
+> SLO 基于中心内存窗口；重启后无数据会短暂 `unknown`。
+
+### 2.9 复盘与交接：仪表板与快照
+
+![仪表板](../examples/screenshots/04-dashboard.png)
+
+「仪表板」支持 metric / traces / logs / text widget；保存后即时计算。
+「生成快照」保存只读数据，便于复盘或分享。
+
+```bash
+curl -s -H "X-Vmon-Token: $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"id":"dash-1","name":"值班看板","widgets":[
+       {"type":"metric","title":"负载","metric":"host.load1"},
+       {"type":"traces","title":"链路"},
+       {"type":"logs","title":"错误模板","limit":5}]}' \
+  "$BASE/api/dashboards"
+curl -s -X POST -H "X-Vmon-Token: $TOKEN" \
+  "$BASE/api/dashboards/dash-1/snapshot"
+```
+
+### 2.10 进程崩溃
+
+「崩溃」页显示信号、次数、节点、原因、build_id、二进制、pid；有 debuginfo
+时显示符号化栈，否则回退地址。崩溃同时进入事件中心，可被规则/Issue 聚合。
+
+## 3. Web UI 速查
+
+| 视图 | 用途 |
 |---|---|
-| trace / request / task | 按一次请求或任务收口 |
-| service / node | 按服务或机器收口 |
-| level / 仅错误 | 只看 error / warn |
-| 文本 | 关键词搜索（错误码、订单号等） |
-| 时间窗 | 15 分钟 / 1 小时 / 6 小时 / 全部 |
+| 总览 | KPI、慢调用、错误模板、拨测、巡检 |
+| 调用链 | 统一搜索、Span 树、关键路径、瀑布图、关联日志 |
+| 服务拓扑 | 强/弱边、调用量、错误、耗时 |
+| 日志 | 多维过滤、时间窗、仅错误 |
+| 日志聚类 | 模板/指纹、下钻、清除 |
+| 服务 | 实例、QPS、错误率、P95、版本 |
+| 节点 | OS/内核/架构、内存、进程快照 |
+| 事件 | 告警/崩溃/发布，ack/resolve，分组 |
+| 异常 | Issue 聚合、指派、ack/resolve、关联 trace |
+| 崩溃 | 信号、帧、build_id、指纹 |
+| 剖析 | Top self、SVG 火焰图、点击放大 |
+| 指标 | 按名字查询、分组折线 |
+| 仪表板 | widget、数据计算、快照 |
+| SLO | SLI、错误预算、燃烧率 |
+| 诊断 | 诊断、证据包、动态级别、命令记录 |
+| 规则 | 规则表单/JSON、告警静默 |
 
-「日志聚类」把这些日志按模板聚合（`<var>` 表示变化部分）：
+## 4. 接入
 
-- 先看哪个模板次数最多、哪个模板带 error；
-- 点指纹下钻，只看这一类日志；
-- 点「清除指纹」回到全量。
+### 4.1 C++（L0–L2）
 
-### 3.4 确认影响面：服务拓扑与节点
+```cpp
+#include <vmon/vmon.h>
 
-- 「服务拓扑」：谁调用谁、方法名、调用量、错误数、平均/最大耗时；
-  虚线表示推断出的弱边，不进入 Span 树结论；
-- 「服务」：服务 → 实例 → 版本；
-- 「节点」：OS/内核/架构/内存，以及进程快照（pid、RSS、线程数、命令行）。
+vmon::Config config;
+config.service_name = "order-service";
+config.instance_id = "order-1";
+config.agent_endpoint = "/run/vmon/agent.sock";
+vmon::init(config);
 
-### 3.5 需要更深的证据时
+void Handle(const char* request_id) {
+  vmon::set_request_id(request_id);  // 指针需活到事件发送
+  {
+    VMON_SPAN("Handle");
+    VMON_INFO("handling request_id=%s", request_id);
+  }
+  vmon::set_request_id(nullptr);
+}
+```
 
-「诊断」页四块能力：
+CMake：
 
-1. **诊断**：填 `trace_id` / `request_id` / 服务 / 节点 / pid，勾选「需要全线程栈」，
-   返回结构化 JSON：匹配的 trace、首个错误、相关日志、可疑假设、检查项、结论。
-2. **证据包**：填事件名（如 `INC-2026-001`）和目标 trace/request，生成一个目录：
-   `manifest.json`、`timeline.json`、`request.json`、`metrics.json`、`logs.jsonl`、
-   `profiles/`、`dumps/`、`index.jsonl`、`hypotheses.md`。IP、邮箱、token/password、
-   home 路径默认脱敏，`manifest.json` 带每个文件的 SHA-256。
-3. **动态日志级别**：按服务/节点/pid 临时开 `debug`，带 TTL（默认 5 分钟），
-   到期自动恢复；命令记录可看到 `running → done` 与执行结果。
-4. **命令记录**：所有下发命令的状态与结果，便于审计。
+```cmake
+list(APPEND CMAKE_MODULE_PATH "/path/to/CplusTrace/cmake")
+include(vmon)
+vmon_attach(your_target)
+```
 
-### 3.6 事件闭环
+L0 只部署 Agent；L1 接 SDK/日志宏；L2 在关键函数加 `VMON_SPAN`。
 
-「事件」页：
-
-- 按状态（open/ack/resolved）、级别、类型、服务筛选；
-- 「确认」表示已知晓，「解决」表示处理完毕；
-- 规则命中的告警、崩溃、平台事件都会进入这里。
-
-「规则」页支持表单新建常用规则（心跳缺失、错误日志突增、慢 trace、指标阈值），
-也保留高级 JSON 编辑。默认规则不可删除，自定义规则可删除。
-
-### 3.7 SLO 与错误预算
-
-「SLO」页：
-
-- 可用性型：窗口内该服务无错误 trace 的比例；
-- 延迟型：窗口内耗时不超过阈值的 trace 比例；
-- 展示 SLI、错误预算剩余、燃烧率、健康状态；
-- 状态含义：`healthy` / `warning`（燃烧率 > 1）/ `critical`（> 2）/
-  `unknown`（窗口内没有数据）。
-
-> SLO 基于中心当前内存窗口内的 trace 计算；重启会清空 trace，因此重启后可能
-> 短暂显示 `unknown`，有新请求后恢复。
-
-### 3.8 Python / Web 客户端
-
-前端或 Python 服务调用后端时，不要让它们成为链路盲区：
-
-- Python：`clients/python/vmon_trace.py`，`client.span()` + `client.request()`；
-- 浏览器：`clients/web/vmon-trace.js`，`instrumentFetch()` 自动注入 `traceparent`；
-- C++ 后端：`vmon::context_from_traceparent()` + `create_span_with_parent()` 续接。
+### 4.2 Python / Web
 
 ```python
 from vmon_trace import Client
@@ -179,169 +265,74 @@ with client.span("GET /orders", request_id="REQ-1"):
 client.close()
 ```
 
-浏览器不要直连中心写接口；由 BFF/网关统一鉴权、注入上下文、采样上报。
-完整说明见 [client-observability.md](client-observability.md)。
+浏览器使用 `clients/web/vmon-trace.js` 的 `instrumentFetch`；C++ 后端用
+`vmon::context_from_traceparent()` + `create_span_with_parent()` 续接。
+浏览器不要直连中心写接口，事件经 BFF 汇总。
+详见 [client-observability.md](client-observability.md)。
 
-### 3.9 入库脱敏与告警通知
-
-**入库脱敏（Pipeline）**：默认关闭；开启后 password/token/email/IP/手机号在进入
-Store 前被替换，日志、trace 属性、证据包都不会出现原文。
-
-```bash
-# 快捷开关：使用内置规则
-vmon_server ... --redact-sensitive
-
-# 或配置文件里自定义规则
-"pipeline": {
-  "enabled": true,
-  "use_defaults": true,
-  "rules": [
-    {"name": "order", "pattern": "order-[0-9]+", "replace": "order-<id>"}
-  ]
-}
-```
-
-总览里能看到 `pipeline_redacted_events` 计数。
-
-**告警 Webhook**：事件中心新增事件时异步 POST 到内网 Webhook（飞书/钉钉/企微
-机器人或自建网关），队列有界，失败只计数不阻塞规则。
+## 5. 查询 / CLI / MCP
 
 ```bash
-vmon_server ... --webhook-url http://127.0.0.1:9000/vmon/events \
-                --webhook-token optional
-```
-
-请求体：
-
-```json
-{"source": "vmon", "event": {"id": "...", "type": "alert",
- "severity": "critical", "title": "...", "service": "...", "status": "open"}}
-```
-
-总览里能看到 `webhook_sent / webhook_failed / webhook_dropped`。
-
-### 3.10 异常追踪、静默与拨测
-
-- **异常**页：错误日志模板与崩溃指纹聚合为 Issue，可「确认 / 指派 / 解决」，
-  支持按状态、服务、级别筛选；Issue 关联 trace_id 时可回到调用链。
-- **规则 → 告警静默**：按规则 / 服务 / 级别 / 时间窗抑制新事件；
-  静默不删除已产生事件，过期后自动恢复。
-- **事件分组**：同指纹、未解决的告警在 5 分钟窗口内合并，显示次数与最近时间。
-- **可用性拨测**：Agent 增加 `--probe`：
-
-```bash
-vmon_agent ... --probe \
-  'order-api=http://127.0.0.1:9000/health;interval_ms=30000;timeout_ms=3000;status=200'
-```
-
-总览「可用性拨测」显示 UP/DOWN；指标页可查 `probe.up`、`probe.duration_ms`、
-`probe.status_code`，规则可基于 `probe.up` 配阈值。
-
-### 3.11 仪表板与快照
-
-「仪表板」页支持三类 widget：
-
-```json
-[
-  {"type": "metric", "title": "主机负载", "metric": "host.load1"},
-  {"type": "traces", "title": "订单错误率", "service": "order"},
-  {"type": "logs", "title": "错误模板", "limit": 5}
-]
-```
-
-保存后即时计算；「生成快照」保存当前数据为只读快照，便于复盘/分享。
-
-### 3.12 诊断版 CPU 采样（可选）
-
-默认不编译常驻采样。需要时：
-
-```bash
-cmake -S . -B build-prof -DVMON_ENABLE_CPU_PROFILER=ON
-cmake --build build-prof -j
-```
-
-业务侧 `vmon::Config.enable_cpu_profiler=true` 后，SDK 用 `ITIMER_PROF` +
-`SIGPROF` 采样，聚合为折叠栈后经 Agent 上报为 `type=profile`；仅在诊断版打开，
-不建议生产常开。eBPF / gRPC streaming 也有对应 CMake 开关，
-需目标 Linux/gRPC 环境验证。
-
-## 4. 常用查询速查
-
-### HTTP
-
-```bash
-TOKEN=<token>
-BASE=http://<中心>:18428
-
-# 调用链：统一搜索
-curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/traces?q=REQ-123&limit=20"
-
-# 仅错误 + 最慢（耗时单位纳秒）
+# 调用链统一搜索
+curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/traces?q=REQ-1"
+# 仅错误 + 最慢（耗时纳秒）
 curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/traces?error=1&min_duration_ns=500000000"
-
-# 一条 trace / 一次请求
-curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/traces/<trace_id>"
-curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/requests/<request_id>"
-
 # 日志
-curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/logs?request_id=R1&errors_only=1&limit=50"
-
-# 指标
-curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/metrics?name=host.load1&limit=200"
-
-# 异常 / 拨测 / 仪表板 / 静默
-curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/issues?status=open"
+curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/logs?request_id=REQ-1&errors_only=1"
+# 指标 / 拨测 / 异常 / 仪表板 / 静默
+curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/metrics?name=host.load1"
 curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/probes"
+curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/issues?status=open"
 curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/dashboards"
 curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/silences"
 ```
 
-### CLI
+CLI：
 
 ```bash
 vmonctl --server "$BASE" --token "$TOKEN" overview
-vmonctl --server "$BASE" --token "$TOKEN" traces --request REQ-123 --error
+vmonctl --server "$BASE" --token "$TOKEN" traces --request REQ-1 --error
 vmonctl --server "$BASE" --token "$TOKEN" trace <trace_id>
 vmonctl --server "$BASE" --token "$TOKEN" logs --text timeout
-vmonctl --server "$BASE" --token "$TOKEN" inspect
-vmonctl --server "$BASE" --token "$TOKEN" diagnose --request REQ-123
-vmonctl --server "$BASE" --token "$TOKEN" evidence --incident INC-001 --trace <trace_id>
+vmonctl --server "$BASE" --token "$TOKEN" diagnose --request REQ-1
+vmonctl --server "$BASE" --token "$TOKEN" evidence --incident INC-001 --request REQ-1
 vmonctl --server "$BASE" --token "$TOKEN" log-level --service order --level debug --ttl 60000
 ```
 
-### MCP（内部版，只读）
+MCP（内部只读）：
 
 ```json
-{
-  "mcpServers": {
-    "vmon": {
-      "command": "/opt/vmon/bin/vmon_mcp",
-      "args": ["--server", "http://127.0.0.1:18428", "--token", "<token>"]
-    }
-  }
-}
+{"mcpServers":{"vmon":{"command":"/opt/vmon/bin/vmon_mcp",
+ "args":["--server","http://127.0.0.1:18428","--token","<token>"]}}}
 ```
 
-工具包括 `query_traces`（支持 `q` 统一搜索）、`get_trace`、`get_request_chain`、
-`query_logs`、`list_log_clusters`、`get_topology`、`list_slos`、`get_process_snapshot`、
-`run_diagnosis`、`create_bundle` 等。对外发行版应设置 `"enable_mcp": false`。
-
-## 5. 常见问题
+## 6. 常见问题
 
 | 现象 | 原因与处理 |
 |---|---|
-| 页面全是「未授权」 | 左上角令牌与服务端 `--token` 不一致；重新填写并保存 |
-| 调用链列表为空 | 业务进程未初始化 SDK、Agent 未启动或 UDS 路径不一致；先看「节点」是否有该 Agent、Agent 日志是否连接成功 |
-| 有 trace 但没有日志 | 日志未带 `trace_id`/`request_id`；SDK 的 `VMON_INFO` 会自动注入当前 span 上下文，确认日志宏走的是 vmon |
-| 指标页为空 | Agent 未开启扫描或还没到上传周期（默认 2 秒扫描、200ms 上传）；主机指标默认开启，进程指标需 `--process-metrics` |
-| 服务列表出现奇怪名字 | 旧版本会把进程名当服务名；升级到当前版本后重启 Agent/Server，历史内存数据随之清空 |
-| 崩溃只有地址没有函数名 | 未保留 debuginfo 或未安装 `addr2line`/`llvm-symbolizer`；构建时保留 `-g` 与独立 debuginfo |
-| SLO 显示 `unknown` | 窗口内没有匹配 trace；确认服务名、时间窗，并产生新请求 |
-| 证据包很大 | 按故障窗口裁剪后再导出；指标文件通常最大，可缩小时间窗 |
+| 页面全是「未授权」 | 左上角令牌与服务端 `--token` 不一致 |
+| 调用链为空 | 业务未初始化 SDK、Agent 未启动或 UDS 路径不一致 |
+| 有 trace 没日志 | 日志未走 vmon 宏，或未带 request_id/trace_id |
+| 指标页为空 | Agent 未扫描或未到上传周期；进程指标需 `--process-metrics` |
+| 服务目录出现进程名 | 旧版本问题；升级后重启 Agent/Server |
+| 崩溃只有地址 | 未保留 debuginfo 或未安装 `addr2line`/`llvm-symbolizer` |
+| SLO unknown | 窗口内没有匹配 trace |
+| 告警不触发 | 检查规则 enabled、静默窗口、冷却与阈值 |
+| 拨测一直 DOWN | 检查 URL 是否 http://、目标是否从 Agent 节点可达、超时设置 |
+| 仪表板指标空 | 指标名是否正确、Agent 是否已上报 |
 
-## 6. 数据边界
+## 7. 数据边界与安全
 
-- 中心 Store 为内存有界存储（trace、日志、指标、事件均有上限），重启清空；
-- Agent 本地 WAL 断网续传，容量上限与丢弃策略可配置；
-- 证据包与 MCP 属于内部能力，不进入对外发行包；
-- 诊断只执行固定白名单只读命令，不拼接 shell。
+- 中心 Store 为有界内存存储，重启清空；长期存储通过 forwarder 接 VM/VL。
+- Agent WAL 断网续传，容量上限与丢弃策略可配置。
+- `--redact-sensitive` / `pipeline` 在入库前脱敏 password/token/email/IP/手机号。
+- 证据包与 MCP 属于内部能力，对外发行版应关闭。
+- 诊断只执行白名单只读命令；写操作需显式确认与审计。
+
+## 8. 示例与进阶
+
+- [examples/README.md](../examples/README.md)：示例目录、截图导览、手动验证；
+- [scenario-cookbook.md](scenario-cookbook.md)：常用场景步骤；
+- [quick-diagnosis.md](quick-diagnosis.md)：三步定位法；
+- [module-design.md](module-design.md)：模块、类图、时序图、框架原理；
+- [verification.md](verification.md)：测试与验收记录。
