@@ -182,6 +182,44 @@ client.close()
 浏览器不要直连中心写接口；由 BFF/网关统一鉴权、注入上下文、采样上报。
 完整说明见 [client-observability.md](client-observability.md)。
 
+### 3.9 入库脱敏与告警通知
+
+**入库脱敏（Pipeline）**：默认关闭；开启后 password/token/email/IP/手机号在进入
+Store 前被替换，日志、trace 属性、证据包都不会出现原文。
+
+```bash
+# 快捷开关：使用内置规则
+vmon_server ... --redact-sensitive
+
+# 或配置文件里自定义规则
+"pipeline": {
+  "enabled": true,
+  "use_defaults": true,
+  "rules": [
+    {"name": "order", "pattern": "order-[0-9]+", "replace": "order-<id>"}
+  ]
+}
+```
+
+总览里能看到 `pipeline_redacted_events` 计数。
+
+**告警 Webhook**：事件中心新增事件时异步 POST 到内网 Webhook（飞书/钉钉/企微
+机器人或自建网关），队列有界，失败只计数不阻塞规则。
+
+```bash
+vmon_server ... --webhook-url http://127.0.0.1:9000/vmon/events \
+                --webhook-token optional
+```
+
+请求体：
+
+```json
+{"source": "vmon", "event": {"id": "...", "type": "alert",
+ "severity": "critical", "title": "...", "service": "...", "status": "open"}}
+```
+
+总览里能看到 `webhook_sent / webhook_failed / webhook_dropped`。
+
 ## 4. 常用查询速查
 
 ### HTTP

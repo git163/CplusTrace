@@ -36,8 +36,8 @@ ctest --test-dir build --output-on-failure
 100% tests passed, 0 tests failed out of 6
 ```
 
-测试数量：C++ 单元 118 个（SDK 18、Server 64、Agent 36），
-Python 客户端 9 个，Web 客户端 5 个，共 132 个测试；
+测试数量：C++ 单元 123 个（SDK 18、Server 69、Agent 36），
+Python 客户端 9 个，Web 客户端 5 个，共 137 个测试；
 端到端场景 17 类。
 Web UI 14 个视图的真实浏览器回归记录见 [ui-test-report.md](ui-test-report.md)。
 

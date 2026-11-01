@@ -106,6 +106,8 @@ add_library(vmon_server_core STATIC
   server/src/evidence.cpp
   server/src/forwarder.cpp
   server/src/log_cluster.cpp
+  server/src/notifier.cpp
+  server/src/pipeline.cpp
   server/src/profiler.cpp
   server/src/rules.cpp
   server/src/serialize.cpp

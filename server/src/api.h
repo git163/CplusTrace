@@ -12,6 +12,8 @@
 #include "config.h"
 #include "crash.h"
 #include "forwarder.h"
+#include "notifier.h"
+#include "pipeline.h"
 #include "profiler.h"
 #include "rules.h"
 #include "slo.h"
@@ -31,6 +33,8 @@ struct ServerContext {
   RuleEngine rules;
   SloManager slos;
   Forwarder forwarder;
+  Pipeline pipeline;
+  Notifier notifier;
   uint64_t started_ns = 0;
   std::string rules_path;
   std::string slos_path;

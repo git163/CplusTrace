@@ -68,6 +68,8 @@ add_executable(vmon_server_tests
   ${CMAKE_SOURCE_DIR}/server/tests/commands_test.cpp
   ${CMAKE_SOURCE_DIR}/server/tests/evidence_test.cpp
   ${CMAKE_SOURCE_DIR}/server/tests/log_cluster_test.cpp
+  ${CMAKE_SOURCE_DIR}/server/tests/notifier_test.cpp
+  ${CMAKE_SOURCE_DIR}/server/tests/pipeline_test.cpp
   ${CMAKE_SOURCE_DIR}/server/tests/profiler_crash_test.cpp
   ${CMAKE_SOURCE_DIR}/server/tests/rules_test.cpp
   ${CMAKE_SOURCE_DIR}/server/tests/slo_test.cpp

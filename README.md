@@ -64,6 +64,7 @@ C++ 系统（10–50 节点、50–200 进程），把「人工翻多机多进�
 - 告警规则表单（保留 JSON 高级编辑）；
 - Trace 统一搜索 `q`（trace_id / request_id / task_id / 服务 / Span，忽略大小写）；
 - Python / Web 客户端 trace 接入与示例 C++ HTTP 后端；
+- 入库前 Pipeline 脱敏（password/token/email/IP/手机号）与事件 Webhook 通知；
 - 常用场景 demo（RPC/慢调用/错误/日志风暴/SLO/崩溃）与快速诊断手册；
 - Web UI 14 个视图完成真实浏览器回归。
 

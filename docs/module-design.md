@@ -344,6 +344,8 @@ Server 命令队列
 | 剖析 | `server/src/profiler.*` | 折叠栈聚合、Top self/inclusive、火焰图 |
 | 崩溃 | `server/src/crash.*` | 崩溃去重、指纹、符号化入口 |
 | 命令队列 | `server/src/commands.*` | 下发、状态、结果、超时 |
+| Pipeline | `server/src/pipeline.*` | 入库前正则脱敏（password/token/email/IP/手机号） |
+| Webhook | `server/src/notifier.*` | 事件异步推送，有界队列与失败计数 |
 | 转发 | `server/src/forwarder.*` | 可选 VM/VL 转发（默认关闭） |
 | 序列化 | `server/src/serialize.*` | Trace/Log/Cluster JSON |
 
@@ -492,6 +494,7 @@ GET /api/traces/{id}
 > [崩溃时序](diagrams/seq-crash.svg) ·
 > [客户端时序](diagrams/seq-client.svg) ·
 > [诊断/证据包时序](diagrams/seq-diagnose.svg) ·
+> [事件 Webhook 时序](diagrams/seq-webhook.svg) ·
 > [框架总图](diagrams/principle-overall.svg) ·
 > [关联键](diagrams/principle-keys.svg) ·
 > [链路还原](diagrams/principle-trace.svg) ·
@@ -714,6 +717,18 @@ classDiagram
     +nodes() vector
     +services() vector
   }
+  class Pipeline {
+    +configure(PipelineConfig)
+    +process(Event) bool
+    +redacted_events() uint64
+  }
+  class Notifier {
+    +start()
+    +stop()
+    +enqueue(EventRecord)
+    +sent() uint64
+    +failed() uint64
+  }
 
   Store *-- TraceData
   TraceData *-- SpanData
@@ -724,6 +739,8 @@ classDiagram
   RuleEngine --> Store : 规则评估
   SloManager --> Store : 只读窗口
   CrashStore --> Store : 崩溃事件
+  Store --> Pipeline : 入库前脱敏
+  Store --> Notifier : 事件 sink
 ```
 
 ### 11.4 一次事件上报与查询（时序）
@@ -748,7 +765,7 @@ sequenceDiagram
   W->>W: 超过 1s 或段大小 -> 封存
   U->>W: 读取封存段
   U->>SV: POST /v1/ingest (NDJSON)
-  SV->>SV: 解析 -> 建索引 -> 采样/去重/聚类 -> 规则
+  SV->>SV: Pipeline 脱敏 -> 建索引 -> 采样/去重/聚类 -> 规则
   API->>SV: GET /api/requests/{id}
   SV-->>API: trace 树 + 日志 + 聚类
   API-->>B: JSON
@@ -846,6 +863,27 @@ sequenceDiagram
   E-->>UI: 目录 + manifest
 ```
 
+### 11.9 事件 Webhook（时序）
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant R as RuleEngine
+  participant S as Store
+  participant N as Notifier
+  participant W as Webhook
+
+  R->>S: add_event(EventRecord)
+  S->>N: event_sink(event)（锁外）
+  N->>N: 入队（有界 1000，满了丢最旧）
+  N->>W: POST application/json
+  alt 2xx
+    N->>N: sent++
+  else 失败/超时
+    N->>N: failed++（不阻塞规则与 HTTP 线程）
+  end
+```
+
 ## 12. 框架原理图
 
 ### 12.1 总原理：所有信号收敛成一条事件流
@@ -865,7 +903,8 @@ flowchart TD
   AG --> W[分段 WAL]
   W -->|HTTP NDJSON| SV[Server 接入]
 
-  SV --> ST[有界 Store]
+  SV --> PL[Pipeline 脱敏]
+  PL --> ST[有界 Store]
   ST --> T[Span 树 / 关键路径]
   ST --> LC[日志模板 / 指纹]
   ST --> MT[指标序列]

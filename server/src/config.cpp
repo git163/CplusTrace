@@ -49,6 +49,32 @@ bool load_server_config(const std::string& path, ServerConfig* config,
       config->rule_interval_ms = j["rule_interval_ms"];
     if (j.contains("inventory_interval_ms"))
       config->inventory_interval_ms = j["inventory_interval_ms"];
+
+    if (j.contains("pipeline") && j["pipeline"].is_object()) {
+      const nlohmann::json& p = j["pipeline"];
+      if (p.contains("enabled")) config->pipeline.enabled = p["enabled"];
+      if (p.contains("use_defaults"))
+        config->pipeline.use_defaults = p["use_defaults"];
+      if (p.contains("rules") && p["rules"].is_array()) {
+        for (const auto& item : p["rules"]) {
+          if (!item.is_object()) continue;
+          PipelineRule rule;
+          rule.name = item.value("name", std::string("custom"));
+          rule.pattern = item.value("pattern", std::string());
+          rule.replace = item.value("replace", std::string("<redacted>"));
+          config->pipeline.rules.push_back(rule);
+        }
+      }
+    }
+
+    if (j.contains("webhook") && j["webhook"].is_object()) {
+      const nlohmann::json& w = j["webhook"];
+      if (w.contains("enabled")) config->webhook_enabled = w["enabled"];
+      if (w.contains("url")) config->webhook_url = w["url"];
+      if (w.contains("timeout_ms"))
+        config->webhook_timeout_ms = w["timeout_ms"];
+      if (w.contains("token")) config->webhook_token = w["token"];
+    }
   } catch (const std::exception& ex) {
     if (error) *error = std::string("配置解析失败: ") + ex.what();
     return false;

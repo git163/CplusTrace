@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+#include "pipeline.h"
+
 namespace vmon {
 namespace server {
 
@@ -36,6 +38,15 @@ struct ServerConfig {
   bool enable_mcp = true;
   uint32_t rule_interval_ms = 5000;
   uint32_t inventory_interval_ms = 3000;
+
+  // 入库前脱敏/清洗（观测云 Pipeline 的轻量版）。
+  PipelineConfig pipeline;
+
+  // 告警事件 Webhook（当前唯一通知渠道；邮件/syslog 后续）。
+  bool webhook_enabled = false;
+  std::string webhook_url;
+  uint32_t webhook_timeout_ms = 3000;
+  std::string webhook_token;
 };
 
 bool load_server_config(const std::string& path, ServerConfig* config,

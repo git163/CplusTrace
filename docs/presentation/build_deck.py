@@ -1080,7 +1080,7 @@ def slide_innovation(prs, n):
         ("05", "对生产零影响",
          "fail-open、热路径无锁、\n崩溃处理 async-signal-safe。"),
         ("06", "全链路可验证",
-         "132 个测试、\n17 类端到端场景。"),
+         "137 个测试、\n17 类端到端场景。"),
     ]
     for i, (num, title, body) in enumerate(items):
         x = LEFT + (i % 3) * 4.05
@@ -1361,7 +1361,8 @@ def slide_roadmap(prs, n):
         "SLO、事件闭环、规则表单",
         "一键诊断 / 巡检、脱敏证据包",
         "Python / Web 客户端 trace 接入",
-        "132 个测试 + 17 类端到端场景",
+        "入库脱敏、事件 Webhook 通知",
+        "137 个测试 + 17 类端到端场景",
     ]
     add_bullets(slide, LEFT + 0.3, 2.18, 5.35, 3.3, done, size=11.5,
                 gap=0.14)
@@ -1373,7 +1374,7 @@ def slide_roadmap(prs, n):
     add_text(slide, 7.25, 1.72, 4.0, 0.35, "下一步（按需推进）", size=14,
              bold=True, color=AMBER)
     todo = [
-        "通知渠道：Webhook / 邮件 / syslog",
+        "邮件 / syslog 通知（Webhook 已支持）",
         "gRPC streaming / 异步拦截与 eBPF 弱边",
         "常驻 CPU / 内存 / 锁剖析",
         "BFF 聚合前端事件 / OTLP 接入",

@@ -1,6 +1,7 @@
 #include "store.h"
 
 #include <algorithm>
+#include <utility>
 
 #include "trace_builder.h"
 #include "util.h"
@@ -568,9 +569,20 @@ std::vector<MetricPoint> Store::recent_metrics(uint64_t since_ns,
 }
 
 void Store::add_event(const EventRecord& event) {
+  EventSink sink;
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    events_.push_back(event);
+    while (events_.size() > config_.max_events) events_.pop_front();
+    sink = event_sink_;
+  }
+  // 回调在锁外执行：Webhook 入队是异步的，但避免未来回调阻塞 Store。
+  if (sink) sink(event);
+}
+
+void Store::set_event_sink(EventSink sink) {
   std::lock_guard<std::mutex> lock(mutex_);
-  events_.push_back(event);
-  while (events_.size() > config_.max_events) events_.pop_front();
+  event_sink_ = std::move(sink);
 }
 
 std::vector<EventRecord> Store::list_events(size_t limit) const {

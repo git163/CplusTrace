@@ -19,5 +19,16 @@
   "evidence_salt": "CHANGE_ME_RANDOM_SALT",
   "enable_mcp": true,
   "rule_interval_ms": 5000,
-  "inventory_interval_ms": 3000
+  "inventory_interval_ms": 3000,
+  "pipeline": {
+    "enabled": true,
+    "use_defaults": true,
+    "rules": []
+  },
+  "webhook": {
+    "enabled": false,
+    "url": "http://127.0.0.1:9000/vmon/events",
+    "timeout_ms": 3000,
+    "token": ""
+  }
 }

@@ -47,6 +47,15 @@ ForwarderConfig make_forwarder_config(const ServerConfig& config) {
   return out;
 }
 
+NotifierConfig make_notifier_config(const ServerConfig& config) {
+  NotifierConfig out;
+  out.enabled = config.webhook_enabled;
+  out.url = config.webhook_url;
+  out.timeout_ms = config.webhook_timeout_ms;
+  out.token = config.webhook_token;
+  return out;
+}
+
 void send_json(httplib::Response& res, const nlohmann::json& json,
                int status = 200) {
   res.status = status;
@@ -208,6 +217,10 @@ nlohmann::json overview_json(ServerContext& ctx) {
   out["logs_noise"] = stats.logs_noise;
   out["trace_count"] = stats.trace_count;
   out["log_count"] = stats.log_count;
+  out["pipeline_redacted_events"] = ctx.pipeline.redacted_events();
+  out["webhook_sent"] = ctx.notifier.sent();
+  out["webhook_failed"] = ctx.notifier.failed();
+  out["webhook_dropped"] = ctx.notifier.dropped();
   out["top_errors"] = top_errors;
   out["slow_traces"] = slow_traces;
   out["recent_events"] = [&ctx]() {
@@ -635,11 +648,21 @@ ServerContext::ServerContext(const ServerConfig& server_config)
       profiles(64),
       rules(),
       slos(),
-      forwarder(make_forwarder_config(server_config)) {
+      forwarder(make_forwarder_config(server_config)),
+      pipeline(),
+      notifier(make_notifier_config(server_config)) {
   started_ns = now_ns();
   if (config.evidence_dir.empty()) config.evidence_dir = config.state_dir + "/evidence";
   rules_path = config.state_dir + "/rules.json";
   slos_path = config.state_dir + "/slos.json";
+  std::string pipeline_error;
+  if (!pipeline.configure(config.pipeline, &pipeline_error)) {
+    std::cerr << "Pipeline 配置失败，已关闭脱敏: " << pipeline_error
+              << std::endl;
+  }
+  // 所有事件（规则、崩溃、手工注入）统一进入通知队列。
+  store.set_event_sink(
+      [this](const EventRecord& event) { notifier.enqueue(event); });
   load_rules();
   load_slos();
 }
@@ -686,12 +709,14 @@ bool ServerContext::save_slos(std::string* error) {
 void ServerContext::start_background() {
   if (running_.exchange(true)) return;
   forwarder.start();
+  notifier.start();
   background_ = std::thread(&ServerContext::background_loop, this);
 }
 
 void ServerContext::stop_background() {
   if (!running_.exchange(false)) return;
   if (background_.joinable()) background_.join();
+  notifier.stop();
   forwarder.stop();
 }
 
@@ -760,6 +785,8 @@ void register_routes(httplib::Server& server, ServerContext& ctx) {
           continue;
         }
         if (event.node.empty()) event.node = node;
+        // 入库前脱敏：敏感字段不进入 Store，也不会出现在证据包/AI 上下文里。
+        ctx.pipeline.process(&event);
         ctx.store.ingest(event, node, agent);
         ctx.rules.on_event(event, &ctx.store);
         ctx.forwarder.submit(event);

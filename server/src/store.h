@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <deque>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -118,6 +119,9 @@ class Store {
   std::vector<MetricPoint> recent_metrics(uint64_t since_ns, size_t limit) const;
 
   void add_event(const EventRecord& event);
+  // 事件新增后的回调（Webhook 等）。回调在锁外执行，不能阻塞太久。
+  typedef std::function<void(const EventRecord&)> EventSink;
+  void set_event_sink(EventSink sink);
   std::vector<EventRecord> list_events(size_t limit) const;
   std::vector<EventRecord> list_events(const EventQuery& query) const;
   bool acknowledge_event(const std::string& id);
@@ -186,6 +190,7 @@ class Store {
   Catalog catalog_;
 
   StoreStats stats_;
+  EventSink event_sink_;
   uint64_t last_prune_ns_ = 0;
   uint64_t started_ns_ = 0;
 };

@@ -52,6 +52,9 @@ int main(int argc, char** argv) {
   bool disable_evidence = false;
   bool disable_mcp = false;
   std::string evidence_salt;
+  std::string webhook_url;
+  std::string webhook_token;
+  bool redact_sensitive = false;
 
   app.add_option("-c,--config", config_path, "JSON 配置文件路径");
   app.add_option("--listen-host", listen_host, "监听地址（默认 0.0.0.0）");
@@ -65,6 +68,12 @@ int main(int argc, char** argv) {
   app.add_flag("--disable-evidence", disable_evidence, "关闭证据包导出（对外发行版）");
   app.add_flag("--disable-mcp", disable_mcp, "关闭 MCP 接口");
   app.add_option("--evidence-salt", evidence_salt, "证据包假名化盐值");
+  app.add_option("--webhook-url", webhook_url,
+                 "告警事件 Webhook 地址（http://，内网机器人/网关）");
+  app.add_option("--webhook-token", webhook_token,
+                 "Webhook 请求头 X-Vmon-Token（可选）");
+  app.add_flag("--redact-sensitive", redact_sensitive,
+               "入库前脱敏 password/token/email/IP/手机号（默认关闭）");
 
   try {
     app.parse(argc, argv);
@@ -91,6 +100,15 @@ int main(int argc, char** argv) {
   if (disable_evidence) config.enable_evidence = false;
   if (disable_mcp) config.enable_mcp = false;
   if (!evidence_salt.empty()) config.evidence_salt = evidence_salt;
+  if (!webhook_url.empty()) {
+    config.webhook_enabled = true;
+    config.webhook_url = webhook_url;
+  }
+  if (!webhook_token.empty()) config.webhook_token = webhook_token;
+  if (redact_sensitive) {
+    config.pipeline.enabled = true;
+    config.pipeline.use_defaults = true;
+  }
 
   if (config.web_dir.empty()) config.web_dir = VMON_WEB_DIR;
   if (!directory_exists(config.web_dir)) {
@@ -134,6 +152,8 @@ int main(int argc, char** argv) {
             << "  state_dir=" << config.state_dir
             << "  转发=" << (context.forwarder.enabled() ? "开" : "关")
             << "  证据包=" << (config.enable_evidence ? "开" : "关")
+            << "  脱敏=" << (context.pipeline.enabled() ? "开" : "关")
+            << "  Webhook=" << (context.notifier.enabled() ? "开" : "关")
             << std::endl;
 
   std::thread listener([&server]() { server.listen_after_bind(); });
