@@ -477,7 +477,7 @@ GET /api/traces/{id}
 | Web 客户端 | `clients/web/test_vmon_trace.js` |
 | UI | Playwright MCP 回归（见 `ui-test-report.md`） |
 
-## 12. 类图与序列图
+## 11. 类图与序列图
 
 > 说明：类图只画核心字段与关系，省略 getter/内部辅助函数；序列图按真实调用顺序，
 > 标出了线程边界与失败路径。
@@ -497,7 +497,7 @@ GET /api/traces/{id}
 > [链路还原](diagrams/principle-trace.svg) ·
 > [背压](diagrams/principle-backpressure.svg)
 
-### 12.1 SDK 核心类图
+### 11.1 SDK 核心类图
 
 ```mermaid
 classDiagram
@@ -576,7 +576,7 @@ classDiagram
   CrashHandler --> Event : 最小崩溃上下文
 ```
 
-### 12.2 Agent 类图
+### 11.2 Agent 类图
 
 ```mermaid
 classDiagram
@@ -635,7 +635,7 @@ classDiagram
   CrashCollector --> Uploader : 崩溃上报
 ```
 
-### 12.3 Server 数据模型类图
+### 11.3 Server 数据模型类图
 
 ```mermaid
 classDiagram
@@ -726,7 +726,7 @@ classDiagram
   CrashStore --> Store : 崩溃事件
 ```
 
-### 12.4 一次事件上报与查询（时序）
+### 11.4 一次事件上报与查询（时序）
 
 ```mermaid
 sequenceDiagram
@@ -754,7 +754,7 @@ sequenceDiagram
   API-->>B: JSON
 ```
 
-### 12.5 动态日志级别（时序）
+### 11.5 动态日志级别（时序）
 
 ```mermaid
 sequenceDiagram
@@ -776,7 +776,7 @@ sequenceDiagram
   Note over CT,BIZ: TTL 到期自动恢复，避免长期高噪
 ```
 
-### 12.6 崩溃处理（时序）
+### 11.6 崩溃处理（时序）
 
 ```mermaid
 sequenceDiagram
@@ -799,7 +799,7 @@ sequenceDiagram
   SV-->>UI: 信号、帧、build_id、次数
 ```
 
-### 12.7 Python / Web 客户端调用（时序）
+### 11.7 Python / Web 客户端调用（时序）
 
 ```mermaid
 sequenceDiagram
@@ -820,7 +820,7 @@ sequenceDiagram
   SV->>SV: 同一 trace 下组装父子关系
 ```
 
-### 12.8 诊断与证据包（时序）
+### 11.8 诊断与证据包（时序）
 
 ```mermaid
 sequenceDiagram
@@ -846,9 +846,9 @@ sequenceDiagram
   E-->>UI: 目录 + manifest
 ```
 
-## 13. 框架原理图
+## 12. 框架原理图
 
-### 13.1 总原理：所有信号收敛成一条事件流
+### 12.1 总原理：所有信号收敛成一条事件流
 
 ```mermaid
 flowchart TD
@@ -883,7 +883,7 @@ flowchart TD
 **原理**：不在每个进程里做关联，而是把「带统一关联键的事件」汇总到中心，
 在中心做索引与分析。进程侧只负责轻量采集，因此可以独立升级、限流、关闭。
 
-### 13.2 事件模型与关联键
+### 12.2 事件模型与关联键
 
 ```mermaid
 flowchart LR
@@ -907,7 +907,7 @@ flowchart LR
 | `build_id + version` | 对应哪次构建 | 崩溃符号化、发布关联 |
 | `fingerprint` | 哪类日志 | 聚类、去重、告警 |
 
-### 13.3 调用链还原原理
+### 12.3 调用链还原原理
 
 ```mermaid
 flowchart LR
@@ -922,7 +922,7 @@ flowchart LR
 事件允许乱序到达：`span_end` 先到也能先记录耗时，树在 `begin` 到达后补齐；
 查询时保证最终一致。
 
-### 13.4 可靠性与背压原理
+### 12.4 可靠性与背压原理
 
 ```mermaid
 flowchart TD
@@ -949,7 +949,7 @@ flowchart TD
 2. **不把异常抛给业务**：SDK/发送/控制线程在边界吞掉异常；
 3. **不在信号上下文做重活**：崩溃只写预打开 fd，然后退出。
 
-## 14. 已知边界
+## 13. 已知边界
 
 1. 中心 Store 为内存有界存储，重启清空；长期存储通过 forwarder 接 VM/VL 或后续 Parquet。
 2. gRPC 只提供传播层，client/server interceptor 需按目标工程版本接入；streaming/异步未覆盖。

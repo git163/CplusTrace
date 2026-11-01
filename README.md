@@ -53,7 +53,7 @@ C++ 系统（10–50 节点、50–200 进程），把「人工翻多机多进�
 | M4 崩溃诊断 | SDK async-signal-safe 崩溃报告、Agent 收集上传、指纹聚合、`addr2line`/`llvm-symbolizer` 离线符号化接口、`core_pattern` helper、事件中心联动 | 未自动关联发布记录；未解析完整 core/minidump |
 | M5 性能剖析 | 折叠栈导入/聚合、Top self/inclusive、火焰图 JSON、证据包集成、按需诊断接口 | 未实现进程内 `SIGPROF` 采样、`perf` 采集、内存/锁/IO 剖析 |
 | M6 告警与内部 AI | 规则引擎（心跳缺失、错误突增、慢 trace、指标阈值）、事件中心、静默/冷却、一键巡检、诊断编排、证据包（脱敏 + SHA-256 清单）、MCP 只读工具、systemd/tmpfiles | 通知渠道（Webhook/邮件/syslog）未实现；无 72 小时长稳与混沌脚本 |
-| 本轮补齐 | 主机/进程指标、SLO 与错误预算、事件 resolve/筛选、服务拓扑、Trace 瀑布图、日志时间窗/node/task_id、规则表单、Trace 统一搜索、Web UI 全量回归 | 通知渠道、常驻 CPU 采样、eBPF、gRPC streaming 仍为非目标/二期 |
+| 本轮补齐 | 主机/进程指标、SLO 与错误预算、事件 resolve/筛选、服务拓扑、Trace 瀑布图、日志时间窗/node/task_id、规则表单、Trace 统一搜索、Python/Web 客户端接入、常用场景 demo、模块/类/时序/原理图、Web UI 全量回归 | 通知渠道、常驻 CPU 采样、eBPF、gRPC streaming 仍为非目标/二期 |
 
 本轮在 M1–M6 纵切之上补齐了高频维测能力：
 
@@ -245,6 +245,23 @@ void Handle(const char* request_id, const char* task_id) {
 - `VMON_DISABLE=1` 可全局关闭；
 - 崩溃处理器默认关闭；开启后接管 `SIGSEGV/SIGABRT/SIGBUS/SIGFPE/SIGILL`，
   只写 async-signal-safe 的最小 JSON，然后 `_exit`。与平台 core 收集的取舍见部署手册。
+
+Python / Web 客户端也可以成为 trace 起点：
+
+```python
+from vmon_trace import Client
+
+client = Client("http://127.0.0.1:18428", "dev-token",
+                service="py-bff", node="node-1")
+with client.span("GET /orders", request_id="REQ-1"):
+    client.request("GET", "http://backend:9000/api/orders",
+                   request_id="REQ-1")
+client.close()
+```
+
+浏览器使用 `clients/web/vmon-trace.js` 的 `instrumentFetch`；C++ 后端用
+`vmon::context_from_traceparent()` 续接。浏览器不要直连中心写接口，事件经 BFF 汇总。
+详见 [docs/client-observability.md](docs/client-observability.md)。
 
 完整接入、systemd、用户组与权限、core_pattern、MCP 配置见
 [docs/deployment.md](docs/deployment.md)。

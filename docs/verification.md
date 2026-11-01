@@ -26,12 +26,12 @@ ctest --test-dir build --output-on-failure
 最近一次结果（加入 Python/Web 客户端与 HTTP 后端后）：
 
 ```
-1/6 Test #1: vmon_e2e ............   Passed  18.54 sec
+1/6 Test #1: vmon_e2e ............   Passed  16.96 sec
 2/6 Test #2: vmon_python_client ...   Passed   0.58 sec
 3/6 Test #3: vmon_web_client ......   Passed   0.05 sec
-4/6 Test #4: vmon_sdk_tests .......   Passed   0.26 sec
-5/6 Test #5: vmon_server_tests ....   Passed   0.07 sec
-6/6 Test #6: vmon_agent_tests .....   Passed   2.64 sec
+4/6 Test #4: vmon_sdk_tests .......   Passed   0.01 sec
+5/6 Test #5: vmon_server_tests ....   Passed   0.05 sec
+6/6 Test #6: vmon_agent_tests .....   Passed   2.40 sec
 
 100% tests passed, 0 tests failed out of 6
 ```
@@ -78,6 +78,18 @@ python3 tests/e2e/run_e2e.py \
 ```
 
 加 `--keep` 可保留临时目录，便于失败时查看 server/agent 日志。
+
+常用场景演示脚本也已逐项实跑：
+
+```bash
+python3 examples/scenarios/demo.py --scenario rpc
+python3 examples/scenarios/demo.py --scenario slow
+python3 examples/scenarios/demo.py --scenario error
+python3 examples/scenarios/demo.py --scenario logstorm
+python3 examples/scenarios/demo.py --scenario slo
+python3 examples/scenarios/demo.py --scenario crash
+python3 examples/scenarios/demo.py --scenario all
+```
 
 ## 3. 本轮发现并修复的问题
 
