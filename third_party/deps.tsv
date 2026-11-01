@@ -1,0 +1,36 @@
+# 生成时间: 2026-11-01T12:08:15Z
+# 说明: 源码与前端资源与 OS/CPU 无关；二进制按平台分列。
+# 用法: Linux 移植阶段执行 ./scripts/download-third-party.sh --os linux --arch amd64 后重新生成本文件。
+name	version	license	kind	os	arch	filename	sha256	url	delivery
+gRPC	目标版本	Apache-2.0	reuse	any	any	-	-	-	复用目标系统
+protobuf	目标版本	BSD-3-Clause	reuse	any	any	-	-	-	复用目标系统
+abseil	目标版本	Apache-2.0	reuse	any	any	-	-	-	复用目标系统
+POCO	目标版本	BSL-1.0	reuse	any	any	-	-	-	复用目标系统
+nlohmann/json	3.12.0	MIT	source	any	any	nlohmann-json-3.12.0.tar.gz	4b92eb0c06d10683f7447ce9406cb97cd4b453be18d7279320f7b2f025c10187	https://github.com/nlohmann/json/archive/refs/tags/v3.12.0.tar.gz	源码编译
+cpp-httplib	0.64.0	MIT	source	any	any	cpp-httplib-0.64.0.tar.gz	1ada413782af5e67e80452c39b7c90beb6fa4fc8341e18c0896bf95684b9a620	https://github.com/yhirose/cpp-httplib/archive/refs/tags/v0.64.0.tar.gz	源码编译
+CLI11	2.7.2	BSD-3-Clause	source	any	any	CLI11-2.7.2.tar.gz	46eef3101da70852ec7af026e09d485ccee81813331c8c6052d39344443b83da	https://github.com/CLIUtils/CLI11/archive/refs/tags/v2.7.2.tar.gz	源码编译
+xxHash	0.8.4	BSD-2-Clause	source	any	any	xxHash-0.8.4.tar.gz	5738270935e7c3d38a79b3adf7c9692566ce7895a25f67de43ad52ab504acd32	https://github.com/Cyan4973/xxHash/archive/refs/tags/v0.8.4.tar.gz	源码编译
+zstd	1.5.7	BSD-3-Clause	source	any	any	zstd-1.5.7.tar.gz	37d7284556b20954e56e1ca85b80226768902e2edabd3b649e9e72c0c9012ee3	https://github.com/facebook/zstd/archive/refs/tags/v1.5.7.tar.gz	源码编译
+zlib	1.3.2	Zlib	source	any	any	zlib-1.3.2.tar.gz	b99a0b86c0ba9360ec7e78c4f1e43b1cbdf1e6936c8fa0f6835c0cd694a495a1	https://github.com/madler/zlib/archive/refs/tags/v1.3.2.tar.gz	源码编译
+GoogleTest	1.12.1	BSD-3-Clause	source	any	any	googletest-release-1.12.1.tar.gz	81964fe578e9bd7c94dfdb09c8e4d6e6759e19967e397dbea48d1c10e45d0df2	https://github.com/google/googletest/archive/refs/tags/release-1.12.1.tar.gz	源码编译
+Google Benchmark	1.10.0	Apache-2.0	source	any	any	google-benchmark-1.10.0.tar.gz	acc5c7c0fbed855c4aaa2d7c3c36fb82b0c15c28f4e151e3f679c2fc0aa404af	https://github.com/google/benchmark/archive/refs/tags/v1.10.0.tar.gz	源码编译
+toml++	3.4.0	MIT	source	any	any	tomlplusplus-3.4.0.tar.gz	8517f65938a4faae9ccf8ebb36631a38c1cadfb5efa85d9a72e15b9e97d25155	https://github.com/marzer/tomlplusplus/archive/refs/tags/v3.4.0.tar.gz	源码编译（可选）
+RE2	2025-11-05	BSD-3-Clause	source	any	any	re2-2025-11-05.tar.gz	87f6029d2f6de8aa023654240a03ada90e876ce9a4676e258dd01ea4c26ffd67	https://github.com/google/re2/archive/refs/tags/2025-11-05.tar.gz	源码编译（可选）
+fmt	12.2.0	MIT	source	any	any	fmt-12.2.0.tar.gz	8b852bb5aa6e7d8564f9e81394055395dd1d1936d38dfd3a17792a02bebd7af0	https://github.com/fmtlib/fmt/archive/refs/tags/12.2.0.tar.gz	源码编译（可选）
+yaml-cpp	0.9.0	MIT	source	any	any	yaml-cpp-0.9.0.tar.gz	25cb043240f828a8c51beb830569634bc7ac603978e0f69d6b63558dadefd49a	https://github.com/jbeder/yaml-cpp/archive/refs/tags/yaml-cpp-0.9.0.tar.gz	源码编译（可选）
+cpptrace	1.0.4	MIT	source	any	any	cpptrace-1.0.4.tar.gz	5c9f5b301e903714a4d01f1057b9543fa540f7bfcc5e3f8bd1748e652e24f9ea	https://github.com/jeremy-rifkin/cpptrace/archive/refs/tags/v1.0.4.tar.gz	源码编译（可选）
+backward-cpp	1.6	MIT	source	any	any	backward-cpp-1.6.tar.gz	c654d0923d43f1cea23d086729673498e4741fb2457e806cfaeaea7b20c97c10	https://github.com/bombela/backward-cpp/archive/refs/tags/v1.6.tar.gz	源码编译（可选）
+concurrentqueue	1.0.5	BSD-2-Clause	source	any	any	concurrentqueue-1.0.5.tar.gz	4d6368a27492d86011fde5ca0cf386dce7c49cd425aa3d9b063ca6ec373a6ef3	https://github.com/cameron314/concurrentqueue/archive/refs/tags/v1.0.5.tar.gz	源码编译（可选）
+libbpf	1.8.0	BSD-2-Clause	source	any	any	libbpf-1.8.0.tar.gz	b7a1e685f90f6a63ead0dd85d053694b222975da8d09c1a966041cff6f0055ff	https://github.com/libbpf/libbpf/archive/refs/tags/v1.8.0.tar.gz	源码编译（可选，仅 Linux）
+VictoriaMetrics	1.155.0	Apache-2.0	binary	darwin	arm64	victoria-metrics-darwin-arm64-v1.155.0.tar.gz	d0d79e85f1d001530f63449847839bec056bc3d93b547c03005faf53a61d8c48	https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/v1.155.0/victoria-metrics-darwin-arm64-v1.155.0.tar.gz	预编译二进制
+vmutils	1.155.0	Apache-2.0	binary	darwin	arm64	vmutils-darwin-arm64-v1.155.0.tar.gz	30c316c0bfb840962a8b878a451acf6dcdae50294543b3a829d54ca0bb6674e1	https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/v1.155.0/vmutils-darwin-arm64-v1.155.0.tar.gz	预编译二进制
+VictoriaLogs	1.53.0	Apache-2.0	binary	darwin	arm64	victoria-logs-darwin-arm64-v1.53.0.tar.gz	e73406db1d291c8de66b2d63d2c6f7b25bc8c556e5b021e2f4dc04003381ce98	https://github.com/VictoriaMetrics/VictoriaLogs/releases/download/v1.53.0/victoria-logs-darwin-arm64-v1.53.0.tar.gz	预编译二进制
+vlutils	1.53.0	Apache-2.0	binary	darwin	arm64	vlutils-darwin-arm64-v1.53.0.tar.gz	b3f6eeb0e98a18f99fd5fe14cb9c9f7cc5c7196001f28fbec6102ca8632a1032	https://github.com/VictoriaMetrics/VictoriaLogs/releases/download/v1.53.0/vlutils-darwin-arm64-v1.53.0.tar.gz	预编译二进制
+Jaeger	2.22.0	Apache-2.0	binary	darwin	arm64	jaeger-2.22.0-darwin-arm64.tar.gz	856f82c353833d85d144e2bb59ecf1156bb431d62748d62e59360b5bdc00fc63	https://github.com/jaegertracing/jaeger/releases/download/v2.22.0/jaeger-2.22.0-darwin-arm64.tar.gz	预编译二进制
+Alertmanager	0.34.2	Apache-2.0	binary	darwin	arm64	alertmanager-0.34.2.darwin-arm64.tar.gz	dc1fcd4ad3e8bef111683eaf385aa5b2b02493277bca9126c129e0a39fc68a4f	https://github.com/prometheus/alertmanager/releases/download/v0.34.2/alertmanager-0.34.2.darwin-arm64.tar.gz	预编译二进制（可选）
+vmutils	1.155.0	Apache-2.0	binary	linux	amd64	vmutils-linux-amd64-v1.155.0.tar.gz	b6181fc16cf19835706ea5d67215eea56c1fe87350fdfd82a5ff803ea2c1a907	https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/v1.155.0/vmutils-linux-amd64-v1.155.0.tar.gz	预编译二进制
+VictoriaLogs	1.53.0	Apache-2.0	binary	linux	amd64	victoria-logs-linux-amd64-v1.53.0.tar.gz	55feba89713cafa952673f91b8b38e7701bb0290989263da671b47a0de16edd3	https://github.com/VictoriaMetrics/VictoriaLogs/releases/download/v1.53.0/victoria-logs-linux-amd64-v1.53.0.tar.gz	预编译二进制
+vlutils	1.53.0	Apache-2.0	binary	linux	amd64	vlutils-linux-amd64-v1.53.0.tar.gz	e72ac62b9e497e415a0b530a95c730a74d5175e5347553775c89997ee2935cf1	https://github.com/VictoriaMetrics/VictoriaLogs/releases/download/v1.53.0/vlutils-linux-amd64-v1.53.0.tar.gz	预编译二进制
+uPlot	1.6.32	MIT	asset	any	any	uplot.iife.min.js	19c8d4c6ad88929a79f4ae49d6f7161566dfd0ba3d15cc495e974f787eb78f1f	https://unpkg.com/uplot@1.6.32/dist/uplot.iife.min.js	静态资源
+uPlot (CSS)	1.6.32	MIT	asset	any	any	uPlot.min.css	df630c6a8d6f8eeaff264b50f73ce5b114f646ffd9a0bb74f049b0a00135fa04	https://unpkg.com/uplot@1.6.32/dist/uPlot.min.css	静态资源
+htmx	4.0.0	BSD-2-Clause	asset	any	any	htmx.min.js	e484d9171a9db30a39c8f16e3d709d4137f3211c659f8e6125816635033d593f	https://unpkg.com/htmx.org@4.0.0/dist/htmx.min.js	静态资源

@@ -1,0 +1,23 @@
+{
+  "listen_host": "0.0.0.0",
+  "listen_port": 18428,
+  "web_dir": "/opt/vmon/web",
+  "state_dir": "/var/lib/vmon-server",
+  "token": "CHANGE_ME",
+  "max_traces": 20000,
+  "max_log_records": 200000,
+  "retention_seconds": 21600,
+  "info_sample_permyriad": 10000,
+  "dedup_window_ms": 30000,
+  "dedup_max_per_window": 50,
+  "noise_patterns": [],
+  "vm_url": "",
+  "vl_url": "",
+  "forward_enabled": false,
+  "enable_evidence": true,
+  "evidence_dir": "/var/lib/vmon-server/evidence",
+  "evidence_salt": "CHANGE_ME_RANDOM_SALT",
+  "enable_mcp": true,
+  "rule_interval_ms": 5000,
+  "inventory_interval_ms": 3000
+}

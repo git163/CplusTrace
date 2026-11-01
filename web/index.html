@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>vmon 维测中心</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">vmon <span>维测中心</span></div>
+    <nav id="nav">
+      <button data-view="overview" class="active">总览</button>
+      <button data-view="traces">调用链</button>
+      <button data-view="topology">服务拓扑</button>
+      <button data-view="logs">日志</button>
+      <button data-view="clusters">日志聚类</button>
+      <button data-view="services">服务</button>
+      <button data-view="nodes">节点</button>
+      <button data-view="events">事件</button>
+      <button data-view="crashes">崩溃</button>
+      <button data-view="profiles">剖析</button>
+      <button data-view="metrics">指标</button>
+      <button data-view="slos">SLO</button>
+      <button data-view="diagnose">诊断</button>
+      <button data-view="rules">规则</button>
+    </nav>
+    <div class="token-box">
+      <input id="token" type="password" placeholder="访问令牌（X-Vmon-Token）" />
+      <button id="save-token">保存</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- 总览 -->
+    <section id="view-overview" class="view active">
+      <div class="toolbar">
+        <h2>运行总览</h2>
+        <button id="overview-refresh">刷新</button>
+        <label class="muted"><input type="checkbox" id="overview-auto" checked /> 自动刷新</label>
+      </div>
+      <div class="cards" id="overview-cards"></div>
+      <div class="grid2">
+        <div class="panel">
+          <h3>最近慢调用</h3>
+          <div id="overview-slow"></div>
+        </div>
+        <div class="panel">
+          <h3>错误日志模板 Top 5</h3>
+          <div id="overview-errors"></div>
+        </div>
+        <div class="panel">
+          <h3>最近事件</h3>
+          <div id="overview-events"></div>
+        </div>
+        <div class="panel">
+          <h3>一键巡检</h3>
+          <button id="inspection-run">执行巡检</button>
+          <div id="inspection-result"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 调用链 -->
+    <section id="view-traces" class="view">
+      <div class="toolbar">
+        <h2>调用链</h2>
+        <input id="trace-query" placeholder="trace_id / request_id / task_id / 服务名" />
+        <button id="trace-search">查询</button>
+        <select id="trace-filter">
+          <option value="">最近 1 小时</option>
+          <option value="error">仅错误</option>
+        </select>
+        <input id="trace-min-duration" type="number" placeholder="最小耗时 ms" style="width:130px" />
+      </div>
+      <div class="split">
+        <div class="panel list-panel" id="trace-list"></div>
+        <div class="panel detail-panel" id="trace-detail">
+          <p class="muted">输入 trace_id 或用左侧列表选择一条调用链。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 服务拓扑 -->
+    <section id="view-topology" class="view">
+      <div class="toolbar">
+        <h2>服务拓扑</h2>
+        <button id="topology-refresh">刷新</button>
+        <span class="muted">最近 5 分钟；虚线表示弱推断边</span>
+      </div>
+      <div class="panel" id="topology-graph"><p class="muted">加载中…</p></div>
+      <div class="panel" id="topology-result"></div>
+    </section>
+
+    <!-- 日志 -->
+    <section id="view-logs" class="view">
+      <div class="toolbar">
+        <h2>日志检索</h2>
+        <input id="log-trace" placeholder="trace_id" />
+        <input id="log-request" placeholder="request_id" />
+        <input id="log-task" placeholder="task_id" />
+        <input id="log-service" placeholder="服务" />
+        <input id="log-node" placeholder="节点" />
+        <select id="log-window">
+          <option value="">全部时间</option>
+          <option value="900">最近 15 分钟</option>
+          <option value="3600">最近 1 小时</option>
+          <option value="21600">最近 6 小时</option>
+        </select>
+        <select id="log-level">
+          <option value="">全部级别</option>
+          <option value="error">error</option>
+          <option value="warn">warn</option>
+          <option value="info">info</option>
+          <option value="debug">debug</option>
+        </select>
+        <input id="log-text" placeholder="正文关键字" />
+        <button id="log-search">查询</button>
+        <label class="muted"><input type="checkbox" id="log-errors" /> 仅错误</label>
+      </div>
+      <div class="panel" id="log-result"></div>
+    </section>
+
+    <!-- 日志聚类 -->
+    <section id="view-clusters" class="view">
+      <div class="toolbar">
+        <h2>日志模板聚类</h2>
+        <input id="cluster-service" placeholder="服务（可选）" />
+        <button id="cluster-search">刷新</button>
+        <label class="muted"><input type="checkbox" id="cluster-errors" checked /> 仅错误级别</label>
+      </div>
+      <div class="panel" id="cluster-result"></div>
+    </section>
+
+    <!-- 服务 -->
+    <section id="view-services" class="view">
+      <div class="toolbar"><h2>服务与实例</h2><button id="services-refresh">刷新</button></div>
+      <div class="panel" id="services-result"></div>
+    </section>
+
+    <!-- 节点 -->
+    <section id="view-nodes" class="view">
+      <div class="toolbar"><h2>节点与进程</h2><button id="nodes-refresh">刷新</button></div>
+      <div class="panel" id="nodes-result"></div>
+    </section>
+
+    <!-- 事件 -->
+    <section id="view-events" class="view">
+      <div class="toolbar">
+        <h2>事件中心</h2>
+        <select id="event-status">
+          <option value="">全部状态</option>
+          <option value="open">open</option>
+          <option value="ack">ack</option>
+          <option value="resolved">resolved</option>
+        </select>
+        <select id="event-severity">
+          <option value="">全部级别</option>
+          <option value="critical">critical</option>
+          <option value="warning">warning</option>
+          <option value="info">info</option>
+        </select>
+        <select id="event-type">
+          <option value="">全部类型</option>
+          <option value="alert">alert</option>
+          <option value="crash">crash</option>
+          <option value="deploy">deploy</option>
+          <option value="change">change</option>
+          <option value="restart">restart</option>
+        </select>
+        <input id="event-service" placeholder="服务（可选）" />
+        <button id="events-refresh">刷新</button>
+      </div>
+      <div class="panel" id="events-result"></div>
+    </section>
+
+    <!-- 崩溃 -->
+    <section id="view-crashes" class="view">
+      <div class="toolbar"><h2>崩溃与符号化</h2><button id="crashes-refresh">刷新</button></div>
+      <div class="split">
+        <div class="panel list-panel" id="crash-list"></div>
+        <div class="panel detail-panel" id="crash-detail"><p class="muted">选择一条崩溃记录查看帧与指纹。</p></div>
+      </div>
+    </section>
+
+    <!-- 剖析 -->
+    <section id="view-profiles" class="view">
+      <div class="toolbar"><h2>性能剖析</h2><button id="profiles-refresh">刷新</button></div>
+      <div class="panel" id="profiles-result"></div>
+    </section>
+
+    <!-- 指标 -->
+    <section id="view-metrics" class="view">
+      <div class="toolbar">
+        <h2>指标</h2>
+        <input id="metric-name" placeholder="指标名（留空看最近全部）" />
+        <button id="metrics-search">查询</button>
+      </div>
+      <div class="panel" id="metrics-result"></div>
+    </section>
+
+    <!-- SLO -->
+    <section id="view-slos" class="view">
+      <div class="toolbar"><h2>SLO 与错误预算</h2><button id="slos-refresh">刷新</button></div>
+      <div class="panel" id="slos-result"></div>
+      <div class="panel">
+        <h3>新增 / 更新 SLO</h3>
+        <div class="form-grid">
+          <input id="slo-id" placeholder="id，如 order-availability" />
+          <input id="slo-name" placeholder="名称" />
+          <input id="slo-service" placeholder="服务（留空表示全部）" />
+          <select id="slo-type">
+            <option value="availability">可用性</option>
+            <option value="latency">延迟</option>
+          </select>
+          <input id="slo-target" type="number" step="0.001" placeholder="目标，如 0.99" />
+          <input id="slo-window" type="number" placeholder="窗口秒数（>=60，默认 3600）" />
+          <input id="slo-latency" type="number" placeholder="延迟阈值 ms（仅延迟型）" />
+          <input id="slo-desc" placeholder="说明（可选）" />
+          <button id="slo-save">保存</button>
+        </div>
+        <span id="slo-msg" class="muted"></span>
+      </div>
+    </section>
+
+    <!-- 诊断 -->
+    <section id="view-diagnose" class="view">
+      <div class="toolbar"><h2>一键诊断与证据包</h2></div>
+      <div class="grid2">
+        <div class="panel">
+          <h3>诊断</h3>
+          <div class="form">
+            <input id="diag-trace" placeholder="trace_id" />
+            <input id="diag-request" placeholder="request_id" />
+            <input id="diag-service" placeholder="服务" />
+            <input id="diag-node" placeholder="节点" />
+            <input id="diag-pid" type="number" placeholder="pid" />
+            <label class="muted"><input type="checkbox" id="diag-stack" /> 需要全线程栈</label>
+            <button id="diag-run">开始诊断</button>
+          </div>
+          <pre id="diag-result" class="code"></pre>
+        </div>
+        <div class="panel">
+          <h3>证据包</h3>
+          <div class="form">
+            <input id="ev-incident" placeholder="事件名，如 INC-2026-001" />
+            <input id="ev-service" placeholder="服务（可选）" />
+            <input id="ev-trace" placeholder="trace_id（可选）" />
+            <input id="ev-request" placeholder="request_id（可选）" />
+            <input id="ev-window" type="number" placeholder="时间窗（小时，默认 1）" />
+            <button id="ev-run">生成证据包</button>
+          </div>
+          <pre id="ev-result" class="code"></pre>
+        </div>
+        <div class="panel">
+          <h3>动态日志级别</h3>
+          <div class="form">
+            <input id="ll-service" placeholder="服务" />
+            <input id="ll-node" placeholder="节点" />
+            <input id="ll-pid" type="number" placeholder="pid（可选，优先）" />
+            <select id="ll-level">
+              <option>debug</option><option>info</option>
+              <option>warn</option><option>error</option><option>trace</option>
+            </select>
+            <input id="ll-ttl" type="number" placeholder="TTL 毫秒（默认 300000）" />
+            <button id="ll-run">下发</button>
+          </div>
+          <div id="ll-result"></div>
+        </div>
+        <div class="panel">
+          <h3>命令记录</h3>
+          <button id="commands-refresh">刷新</button>
+          <div id="commands-result"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 规则 -->
+    <section id="view-rules" class="view">
+      <div class="toolbar"><h2>告警规则</h2><button id="rules-refresh">刷新</button></div>
+      <div class="panel" id="rules-result"></div>
+      <div class="panel">
+        <h3>新增 / 更新规则</h3>
+        <div class="form-grid">
+          <input id="rf-id" placeholder="规则 id" />
+          <input id="rf-name" placeholder="名称" />
+          <select id="rf-type">
+            <option value="error_log">error_log</option>
+            <option value="heartbeat">heartbeat</option>
+            <option value="trace_error_rate">trace_error_rate</option>
+            <option value="slow_trace">slow_trace</option>
+            <option value="metric">metric</option>
+          </select>
+          <input id="rf-service" placeholder="服务（可选）" />
+          <input id="rf-node" placeholder="节点（可选）" />
+          <input id="rf-metric" placeholder="指标名（metric 类型）" />
+          <select id="rf-op">
+            <option value=">=">&gt;=</option>
+            <option value=">">&gt;</option>
+            <option value="<=">&lt;=</option>
+            <option value="<">&lt;</option>
+          </select>
+          <input id="rf-threshold" type="number" step="any" placeholder="阈值" />
+          <input id="rf-window" type="number" placeholder="窗口秒数（默认 60）" />
+          <input id="rf-cooldown" type="number" placeholder="冷却秒数（默认 300）" />
+          <select id="rf-severity">
+            <option value="warning">warning</option>
+            <option value="critical">critical</option>
+            <option value="info">info</option>
+          </select>
+          <label class="muted"><input type="checkbox" id="rf-enabled" checked /> 启用</label>
+          <button id="rf-save">保存规则</button>
+        </div>
+        <span id="rf-msg" class="muted"></span>
+      </div>
+      <div class="panel">
+        <h3>高级：新增/覆盖规则（JSON）</h3>
+        <textarea id="rule-json" rows="8" class="code"
+          placeholder='{"id":"my-rule","type":"error_log","threshold":10,"window_ns":60000000000,"severity":"warning"}'></textarea>
+        <button id="rule-save">保存规则</button>
+        <span id="rule-msg" class="muted"></span>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast"></div>
+  <script src="/app.js"></script>
+</body>
+</html>

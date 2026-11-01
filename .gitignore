@@ -1,0 +1,26 @@
+# 构建产物
+/build/
+build-*/
+cmake-build-*/
+
+# 三方下载、解压与二进制（由 scripts/download-third-party.sh 获取）
+/third_party/downloads/
+/third_party/src/
+/third_party/bin/
+
+# 本地运行状态与日志
+*.log
+*.sock
+*.core
+core.[0-9]*
+*.dSYM/
+
+# 浏览器/工具测试产物与本地配置
+/.playwright-mcp/
+/.gstack/
+.claude/settings.local.json
+
+# 编辑器与系统文件
+.DS_Store
+.idea/
+.vscode/

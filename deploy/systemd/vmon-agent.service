@@ -1,0 +1,39 @@
+[Unit]
+Description=vmon 节点采集代理
+Documentation=file:/opt/vmon/docs/deployment.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=vmon
+Group=vmon
+WorkingDirectory=/opt/vmon
+ExecStart=/opt/vmon/bin/vmon-agent --config /etc/vmon/agent.json
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+
+# 资源限额：Agent 异常时优先限制自身，不拖垮业务进程。
+MemoryMax=512M
+CPUQuota=100%
+TasksMax=256
+
+# /run/vmon 用于 SDK 接入 socket 与控制 socket，需允许业务用户组写入。
+RuntimeDirectory=vmon
+RuntimeDirectoryMode=0770
+StateDirectory=vmon-agent
+StateDirectoryMode=0750
+ReadWritePaths=/var/lib/vmon-crash
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

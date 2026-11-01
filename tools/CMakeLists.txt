@@ -1,0 +1,21 @@
+# 运维工具：CLI、MCP stdio 桥、崩溃上报 helper。
+add_executable(vmonctl cli/vmonctl.cpp)
+target_include_directories(vmonctl PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../common)
+target_link_libraries(vmonctl PRIVATE vmon_third_party)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  target_compile_options(vmonctl PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
+add_executable(vmon_mcp mcp/vmon_mcp.cpp)
+target_include_directories(vmon_mcp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../common)
+target_link_libraries(vmon_mcp PRIVATE vmon_third_party)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  target_compile_options(vmon_mcp PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
+add_executable(vmon_crash_helper crash-helper/vmon_crash_helper.cpp)
+target_include_directories(vmon_crash_helper PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../common)
+target_link_libraries(vmon_crash_helper PRIVATE vmon_third_party)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  target_compile_options(vmon_crash_helper PRIVATE -Wall -Wextra -Wpedantic)
+endif()

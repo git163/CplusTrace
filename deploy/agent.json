@@ -1,0 +1,29 @@
+{
+  "server_url": "http://127.0.0.1:18428",
+  "listen_uds": "/run/vmon/agent.sock",
+  "state_dir": "/var/lib/vmon-agent",
+  "node": "",
+  "token": "CHANGE_ME",
+  "control_dir": "/run/vmon/ctrl",
+  "crash_dir": "/var/lib/vmon-crash",
+  "scan_interval_ms": 2000,
+  "upload_interval_ms": 1000,
+  "command_interval_ms": 1000,
+  "crash_upload_interval_ms": 2000,
+  "wal_segment_bytes": 4194304,
+  "wal_max_bytes": 67108864,
+  "max_lines_per_batch": 500,
+  "process_filters": [
+    "your-service"
+  ],
+  "log_files": [
+    {
+      "path": "/var/log/your-service/business.log",
+      "service": "your-service"
+    },
+    {
+      "path": "/var/log/your-service/error.log",
+      "service": "your-service"
+    }
+  ]
+}
