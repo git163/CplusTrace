@@ -572,6 +572,11 @@ def verify_queries(harness, request_id, context, pid):
     match = [item for item in services if item.get("service") == "e2e-client"]
     if not match or match[0].get("alive_instances", 0) < 1:
         raise E2EFailure("服务视图缺少存活实例: %r" % match)
+    # 服务性能分析：QPS / 错误率 / P95 来自最近 5 分钟的 Span。
+    if match[0].get("span_count_5m", 0) < 1:
+        raise E2EFailure("服务缺少 5 分钟 Span 统计: %r" % match[0])
+    if "qps_5m" not in match[0] or "p95_ms" not in match[0]:
+        raise E2EFailure("服务缺少 QPS/P95 字段: %r" % match[0])
     if pid not in [item.get("pid") for item in match[0].get("instance_details", [])]:
         raise E2EFailure("服务实例中没有目标 pid=%d" % pid)
 

@@ -244,6 +244,11 @@ nlohmann::json services_json(ServerContext& ctx) {
     std::set<std::string> nodes;
     std::set<std::string> versions;
     nlohmann::json instance_list = nlohmann::json::array();
+    // 近 5 分钟服务级性能（来自 Span 而不是日志）：
+    // 调用量、错误 Span、P95 耗时，对应竞品 APM 的“服务性能分析”。
+    uint64_t spans = 0;
+    uint64_t error_spans = 0;
+    std::vector<uint64_t> durations_ns;
   };
 
   std::map<std::string, Aggregate> aggregates;
@@ -260,9 +265,35 @@ nlohmann::json services_json(ServerContext& ctx) {
     agg.instance_list.push_back(instance_to_json(instance));
   }
 
+  const uint64_t now = now_ns();
+  const uint64_t since = now > 300000000000ull ? now - 300000000000ull : 0;
+  for (const TraceData& trace : ctx.store.recent_traces(since, 2000)) {
+    for (const auto& kv : trace.spans) {
+      const SpanData& span = kv.second;
+      if (span.service.empty()) continue;
+      Aggregate& agg = aggregates[span.service];
+      agg.service = span.service;
+      ++agg.spans;
+      if (span.status == "error" || !span.error_code.empty()) ++agg.error_spans;
+      agg.durations_ns.push_back(span.duration_ns());
+      agg.last_seen = std::max(agg.last_seen, span.end_ns);
+    }
+  }
+
   nlohmann::json out = nlohmann::json::array();
-  for (const auto& kv : aggregates) {
-    const Aggregate& agg = kv.second;
+  for (auto& kv : aggregates) {
+    Aggregate& agg = kv.second;
+    std::sort(agg.durations_ns.begin(), agg.durations_ns.end());
+    double p95_ms = 0.0;
+    if (!agg.durations_ns.empty()) {
+      size_t index = static_cast<size_t>(agg.durations_ns.size() * 0.95);
+      if (index >= agg.durations_ns.size()) index = agg.durations_ns.size() - 1;
+      p95_ms = static_cast<double>(agg.durations_ns[index]) / 1000000.0;
+    }
+    const double error_rate =
+        agg.spans == 0 ? 0.0
+                       : static_cast<double>(agg.error_spans) * 100.0 /
+                             static_cast<double>(agg.spans);
     out.push_back({{"service", agg.service},
                    {"instances", agg.instances},
                    {"alive_instances", agg.alive},
@@ -270,6 +301,11 @@ nlohmann::json services_json(ServerContext& ctx) {
                    {"error_count", agg.errors},
                    {"last_seen_ns", agg.last_seen},
                    {"last_seen", iso_time(agg.last_seen)},
+                   {"span_count_5m", agg.spans},
+                   {"error_spans_5m", agg.error_spans},
+                   {"error_rate_5m", error_rate},
+                   {"qps_5m", static_cast<double>(agg.spans) / 300.0},
+                   {"p95_ms", p95_ms},
                    {"nodes", std::vector<std::string>(agg.nodes.begin(),
                                                       agg.nodes.end())},
                    {"versions", std::vector<std::string>(agg.versions.begin(),

@@ -3,7 +3,8 @@
 > 日期：2026-11-01
 > 参考对象：观测云（guance.com）、Datadog、Dynatrace、Grafana LGTM、SigNoz、夜莺 n9e。
 > 目的：说明「哪些能力必须有、哪些本轮补齐、哪些明确不做」，避免范围失控。
-> 关联：[feature-gap-design.md](feature-gap-design.md)、[user-guide.md](user-guide.md)。
+> 关联：[feature-gap-design.md](feature-gap-design.md)、[user-guide.md](user-guide.md)、
+> [guance-benchmark.md](guance-benchmark.md)（观测云逐项对标与本轮落地）。
 
 ## 1. 一句话定位
 
@@ -25,6 +26,7 @@
 | 指标采集与趋势 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ 主机/进程指标 |
 | APM Trace / 调用链 | ✅ | ✅ | ✅ | ✅ Tempo | ✅ | 🟡 | ✅ 跨进程 + 进程内 Span |
 | 服务拓扑 | ✅ | ✅ | ✅ 强 | 🟡 | ✅ | 🟡 | ✅ 强/弱边 + SVG |
+| 服务性能分析（QPS/错误率/P95） | ✅ | ✅ | ✅ | 🟡 | ✅ | 🟡 | ✅ 服务页 |
 | 日志检索 | ✅ | ✅ | ✅ | ✅ Loki | ✅ | 🟡 | ✅ 多维过滤 |
 | 日志模板聚类 / 指纹 | ✅ | ✅ | ✅ | 🟡 | 🟡 | ➖ | ✅ |
 | 日志降噪（采样/去重/噪声模板） | ✅ | ✅ | ✅ | 🟡 | 🟡 | ➖ | ✅ |
@@ -123,6 +125,7 @@ Dynatrace 的自动依赖发现是竞品标杆；本项目不做自动发现，�
 | 日志过滤 | node/task_id/时间窗 | E2E + UI |
 | 规则表单 | 常用字段表单 + JSON 高级编辑 | UI 回归 |
 | 统一搜索 | `q` 覆盖 trace/request/task/服务/Span | 单测 + E2E + UI |
+| 服务性能分析 | 服务页增加 QPS/错误率/P95（近 5 分钟 Span） | E2E + UI |
 | Pipeline 脱敏 | 入库前正则替换 password/token/email/IP/手机号 | 单测 |
 | 告警通知 | 事件 Webhook（异步、有界队列、失败计数） | 单测 |
 | 文档 | 使用手册、快速诊断、场景手册、模块/类/时序图、竞品分析、UI 测试报告 | 本目录文档 |

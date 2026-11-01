@@ -473,6 +473,7 @@ GET /api/traces/{id}
 |---|---|
 | SDK 环/上下文/Span/传播 | `tests/ring_buffer_test.cpp`、`span_test.cpp`、`propagation_test.cpp` |
 | Server 存储/链路/聚类/规则/SLO/API | `server/tests/*` |
+| Pipeline 脱敏 / Webhook | `server/tests/pipeline_test.cpp`、`notifier_test.cpp` |
 | Agent WAL/接入/扫描/命令/崩溃 | `agent/tests/*` |
 | 端到端 | `tests/e2e/run_e2e.py`（17 类场景） |
 | Python 客户端 | `clients/python/test_vmon_trace.py` |

@@ -15,6 +15,7 @@ C++ 系统（10–50 节点、50–200 进程），把「人工翻多机多进�
 - Web/Python 客户端接入设计：[docs/client-observability.md](docs/client-observability.md)
 - 项目介绍 PPT：[docs/presentation/](docs/presentation/)
 - 竞品对照与取舍：[docs/competitive-analysis.md](docs/competitive-analysis.md)
+- 观测云深入对标与本轮落地：[docs/guance-benchmark.md](docs/guance-benchmark.md)
 - Web UI 浏览器回归记录：[docs/ui-test-report.md](docs/ui-test-report.md)
 - 生产零影响约束：[docs/production-safety.md](docs/production-safety.md)
 - 部署与运维：[docs/deployment.md](docs/deployment.md)
@@ -58,6 +59,7 @@ C++ 系统（10–50 节点、50–200 进程），把「人工翻多机多进�
 本轮在 M1–M6 纵切之上补齐了高频维测能力：
 
 - Agent 主机指标（`host.load1/5/15`、内存、进程数、uptime）与可选的进程 RSS；
+- 服务性能分析：服务页展示近 5 分钟 QPS、错误率、P95；
 - SLO（可用性/延迟、错误预算、燃烧率）及持久化；
 - 事件生命周期（open → ack → resolved）与多维筛选；
 - 服务拓扑、Trace 瀑布图、日志时间窗/node/task_id 过滤；

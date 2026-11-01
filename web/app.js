@@ -681,7 +681,7 @@
   async function loadServices() {
     const data = await api("/api/services");
     $("services-result").innerHTML = data.length
-      ? '<table><thead><tr><th>服务</th><th>实例</th><th>存活</th><th>事件</th><th>错误</th><th>节点</th><th>版本</th><th>最近</th></tr></thead><tbody>' +
+      ? '<table><thead><tr><th>服务</th><th>实例</th><th>存活</th><th>QPS(5m)</th><th>错误率(5m)</th><th>P95</th><th>事件</th><th>错误</th><th>节点</th><th>版本</th><th>最近</th></tr></thead><tbody>' +
         data
           .map(
             (s) =>
@@ -691,6 +691,12 @@
               esc((s.instance_details || []).map((i) => i.instance).join(", ")) +
               "</td><td>" +
               esc(s.alive_instances) +
+              "</td><td>" +
+              esc(Number(s.qps_5m || 0).toFixed(2)) +
+              "</td><td>" +
+              esc(Number(s.error_rate_5m || 0).toFixed(1) + "%") +
+              "</td><td>" +
+              esc(Number(s.p95_ms || 0).toFixed(1) + " ms") +
               "</td><td>" +
               esc(s.event_count) +
               '</td><td class="' +
