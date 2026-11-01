@@ -141,6 +141,7 @@ add_subdirectory(tools)
 # ---------------------------------------------------------------- 示例
 if(VMON_BUILD_EXAMPLES)
   add_subdirectory(examples/hello)
+  add_subdirectory(examples/http_backend)
 endif()
 
 # ---------------------------------------------------------------- 测试

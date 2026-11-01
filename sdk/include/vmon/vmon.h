@@ -60,7 +60,9 @@ bool enabled() noexcept;
 void heartbeat() noexcept;
 
 // 设置当前线程的请求关联 ID（业务入口解析请求后调用）。
-// 指针只在当前请求处理期间有效；传 nullptr 清除，避免野指针。
+// SDK 只保存指针，后台发送线程稍后才序列化；指针必须保持有效直到事件被
+// 发送（默认 100ms），建议使用静态/长生命周期字符串或显式管理生命周期。
+// 传 nullptr 清除，避免野指针。
 void set_request_id(const char* request_id) noexcept;
 void set_task_id(const char* task_id) noexcept;
 const char* request_id() noexcept;
@@ -75,6 +77,10 @@ struct SpanContext {
   uint64_t span     = 0;
   bool     valid    = false;
 };
+
+// 从 W3C traceparent 头恢复父上下文（HTTP / gRPC 服务端入口使用）。
+// 解析失败返回 false；调用方应新建 trace，而不是拒绝业务请求。
+bool context_from_traceparent(const char* header, SpanContext* out) noexcept;
 
 // 取当前线程 span 栈顶上下文；无 span 时 valid=false。
 SpanContext current_context() noexcept;

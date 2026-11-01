@@ -2,6 +2,9 @@
 
 > 面向第一次接触本系统的人。目标：**10 分钟内启动、查清一条请求、定位一个错误**。
 > 部署、权限、systemd、core_pattern 等运维细节见 [deployment.md](deployment.md)。
+>
+> 想直接看「怎么快速定位」：读 [quick-diagnosis.md](quick-diagnosis.md)。
+> 想按场景跑 demo：读 [scenario-cookbook.md](scenario-cookbook.md)。
 
 ## 1. 三分钟跑起来（本机演示）
 
@@ -29,6 +32,15 @@ PORT=19428 VMON_TOKEN=mytoken VMON_HOME=/tmp/vmon \
 ```bash
 ./examples/hello/run_demo.sh
 ```
+
+想看跨语言、慢调用、错误、日志风暴、SLO、崩溃等常用场景：
+
+```bash
+python3 examples/scenarios/demo.py --scenario all --keep
+```
+
+脚本会启动真实 Server/Agent/HTTP 后端并造数据，打印 trace_id、request_id
+和 Web/CLI 查看方式。场景说明见 [scenario-cookbook.md](scenario-cookbook.md)。
 
 脚本自动完成：启动 Server → 启动 Agent → 运行示例业务进程 → 按 `request_id`
 查询并打印 trace 与日志 → 清理。
@@ -147,6 +159,28 @@ socket `0660`。完整清单见 [deployment.md](deployment.md)。
 
 > SLO 基于中心当前内存窗口内的 trace 计算；重启会清空 trace，因此重启后可能
 > 短暂显示 `unknown`，有新请求后恢复。
+
+### 3.8 Python / Web 客户端
+
+前端或 Python 服务调用后端时，不要让它们成为链路盲区：
+
+- Python：`clients/python/vmon_trace.py`，`client.span()` + `client.request()`；
+- 浏览器：`clients/web/vmon-trace.js`，`instrumentFetch()` 自动注入 `traceparent`；
+- C++ 后端：`vmon::context_from_traceparent()` + `create_span_with_parent()` 续接。
+
+```python
+from vmon_trace import Client
+
+client = Client("http://127.0.0.1:18428", "dev-token",
+                service="py-bff", node="node-1")
+with client.span("GET /orders", request_id="REQ-1"):
+    client.request("GET", "http://backend:9000/api/orders",
+                   request_id="REQ-1")
+client.close()
+```
+
+浏览器不要直连中心写接口；由 BFF/网关统一鉴权、注入上下文、采样上报。
+完整说明见 [client-observability.md](client-observability.md)。
 
 ## 4. 常用查询速查
 

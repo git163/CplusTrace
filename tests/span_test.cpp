@@ -116,6 +116,29 @@ TEST_F(SpanTest, SetErrorMarksSpanEndEvent) {
   EXPECT_TRUE(drain_events().empty());
 }
 
+TEST_F(SpanTest, SiblingSpanDoesNotInheritErrorCode) {
+  const vmon::Config config = make_config();
+  ASSERT_TRUE(vmon::init(config));
+
+  {
+    vmon::Span bad = vmon::Span::create("bad", __FILE__, __LINE__);
+    bad.set_error("E_BAD");
+    bad.end();
+  }
+  {
+    // 同槽位复用的正常 Span 不能继承上一个 Span 的错误码。
+    vmon::Span good = vmon::Span::create("good", __FILE__, __LINE__);
+    good.end();
+  }
+
+  const std::vector<Event> events = drain_events();
+  ASSERT_EQ(4u, events.size());
+  ASSERT_NE(nullptr, events[1].error_code);
+  EXPECT_STREQ("E_BAD", events[1].error_code);
+  EXPECT_EQ(nullptr, events[2].error_code);
+  EXPECT_EQ(nullptr, events[3].error_code);
+}
+
 TEST_F(SpanTest, DepthLimitDegradesToNoop) {
   const vmon::Config config = make_config();
   ASSERT_TRUE(vmon::init(config));

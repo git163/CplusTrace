@@ -2,6 +2,8 @@
 
 #include <cctype>
 
+#include <vmon/vmon.h>
+
 namespace vmon {
 namespace adapters {
 
@@ -96,4 +98,19 @@ bool parse_traceparent(const std::string& header, Traceparent* out) {
 }
 
 }  // namespace adapters
+
+bool context_from_traceparent(const char* header, SpanContext* out) noexcept {
+  if (header == nullptr || out == nullptr) return false;
+  adapters::Traceparent parsed;
+  if (!adapters::parse_traceparent(header, &parsed) || !parsed.valid) {
+    *out = SpanContext();
+    return false;
+  }
+  out->trace_hi = parsed.trace_hi;
+  out->trace_lo = parsed.trace_lo;
+  out->span = parsed.span;
+  out->valid = true;
+  return true;
+}
+
 }  // namespace vmon

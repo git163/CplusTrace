@@ -124,6 +124,9 @@ Span Span::create_impl(const SpanContext* parent, const char* name,
   frame.span = detail::new_span_id(ctx);
   frame.start_ns = detail::mono_ns();
   frame.name = name;
+  // 栈帧会被同槽位的后续 Span 复用，必须清掉上一个 Span 的错误码，
+  // 否则错误会“传染”给同级的正常 Span。
+  frame.error_code = nullptr;
 
   detail::Event ev =
       detail::make_event(ctx, detail::EventType::kSpanBegin, name, file, line);

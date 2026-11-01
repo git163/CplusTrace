@@ -42,6 +42,24 @@ TEST(Propagation, TraceparentRoundTrip) {
   EXPECT_EQ(0x1111222233334444ull, parsed.span);
 }
 
+TEST(Propagation, PublicHelperRestoresParentContext) {
+  const std::string header = vmon::adapters::make_traceparent(
+      0x0123456789abcdefull, 0xfedcba9876543210ull, 0x1111222233334444ull,
+      true);
+  vmon::SpanContext context;
+  ASSERT_TRUE(vmon::context_from_traceparent(header.c_str(), &context));
+  EXPECT_TRUE(context.valid);
+  EXPECT_EQ(0x0123456789abcdefull, context.trace_hi);
+  EXPECT_EQ(0xfedcba9876543210ull, context.trace_lo);
+  EXPECT_EQ(0x1111222233334444ull, context.span);
+
+  // 非法头只影响本次链路，不抛异常；调用方应新建 trace。
+  EXPECT_FALSE(vmon::context_from_traceparent("bad", &context));
+  EXPECT_FALSE(context.valid);
+  EXPECT_FALSE(vmon::context_from_traceparent(nullptr, &context));
+  EXPECT_FALSE(vmon::context_from_traceparent(header.c_str(), nullptr));
+}
+
 TEST(Propagation, NotSampledFlagIsParsed) {
   const std::string header = vmon::adapters::make_traceparent(
       0x1ull, 0x2ull, 0x3ull, false);

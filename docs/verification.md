@@ -23,18 +23,22 @@ cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
 
-最近一次结果（本轮功能补齐后）：
+最近一次结果（加入 Python/Web 客户端与 HTTP 后端后）：
 
 ```
-1/4 Test #1: vmon_e2e .........................   Passed  16.83 sec
-2/4 Test #2: vmon_sdk_tests ...................   Passed   0.01 sec
-3/4 Test #3: vmon_server_tests ................   Passed   0.04 sec
-4/4 Test #4: vmon_agent_tests .................   Passed   2.38 sec
+1/6 Test #1: vmon_e2e ............   Passed  18.54 sec
+2/6 Test #2: vmon_python_client ...   Passed   0.58 sec
+3/6 Test #3: vmon_web_client ......   Passed   0.05 sec
+4/6 Test #4: vmon_sdk_tests .......   Passed   0.26 sec
+5/6 Test #5: vmon_server_tests ....   Passed   0.07 sec
+6/6 Test #6: vmon_agent_tests .....   Passed   2.64 sec
 
-100% tests passed, 0 tests failed out of 4
+100% tests passed, 0 tests failed out of 6
 ```
 
-单元测试数量：SDK 16 个、Server 64 个、Agent 36 个，共 116 个用例。
+测试数量：C++ 单元 118 个（SDK 18、Server 64、Agent 36），
+Python 客户端 9 个，Web 客户端 5 个，共 132 个测试；
+端到端场景 17 类。
 Web UI 14 个视图的真实浏览器回归记录见 [ui-test-report.md](ui-test-report.md)。
 
 ## 2. 端到端覆盖
@@ -51,15 +55,16 @@ Web UI 14 个视图的真实浏览器回归记录见 [ui-test-report.md](ui-test
 | 5 | 动态日志级别 | 命令前无 debug 日志；`POST /api/control/log-level` 后命令 `done`，业务进程确认 `debug`；中心收到 `e2e debug tick` 且聚类模板可见 |
 | 6 | MCP 基础 | `tools/list` 返回工具列表；`tools/call get_request_chain` 返回对应 trace |
 | 7 | 跨进程链路 | 父进程导出上下文，子进程 `create_span_with_parent` 续接；同一 trace 含两个服务；子 Span 的 parent 正确；拓扑出现 `e2e-parent → e2e-child` 边且带 confidence |
-| 8 | 事件生命周期 | 注入 deploy 事件；按 open/type/severity/service 筛选；ack → resolve；resolved 后再 ack 不回退；不存在事件返回 404 |
-| 9 | 剖析 | 折叠栈导入后可查 `total_samples=180`、Top self、火焰图根值与 `main` 子节点 |
-| 10 | 诊断/巡检 | `/api/diagnose` 返回 traces/first_error/logs/hypotheses/checks/verdict；`/api/inspection` 返回 ok/warn/fail 摘要 |
-| 11 | 证据包 | manifest 版本/pack_id 正确；文件大小与 SHA-256 校验一致；日志中的 password/email/IP/home 路径被替换；redaction 规则可见 |
-| 12 | SLO | 可用性/延迟 SLO 的 SLI、错误预算、状态；非法 target 400；列表/删除/重复删除 404；MCP `list_slos` |
-| 13 | MCP 查询 | `query_traces`、`get_topology` 返回结构正确；未知工具返回 `-32602` |
-| 14 | 规则持久化 | 创建指标规则与 SLO；重启 Server 后仍存在；空数据 SLO 为 `unknown`；删除生效 |
-| 15 | 崩溃 | 业务进程 `SIGSEGV` 后退出码匹配；`/api/crashes?service=e2e-crash` 可查到；事件中心有 crash 事件 |
-| 16 | 断网续传 | 停止中心 → 业务进程继续上报 → 重启中心 → 补传的 trace 完整（span 数 ≥ 3） |
+| 8 | Python/Web RPC | Python 客户端 → C++ HTTP 后端：同一 trace、后端 span 父节点正确、两侧日志可见；强制 500 时首个错误码为 `E_ECHO` / `E_HTTP_500` |
+| 9 | 事件生命周期 | 注入 deploy 事件；按 open/type/severity/service 筛选；ack → resolve；resolved 后再 ack 不回退；不存在事件返回 404 |
+| 10 | 剖析 | 折叠栈导入后可查 `total_samples=180`、Top self、火焰图根值与 `main` 子节点 |
+| 11 | 诊断/巡检 | `/api/diagnose` 返回 traces/first_error/logs/hypotheses/checks/verdict；`/api/inspection` 返回 ok/warn/fail 摘要 |
+| 12 | 证据包 | manifest 版本/pack_id 正确；文件大小与 SHA-256 校验一致；日志中的 password/email/IP/home 路径被替换；redaction 规则可见 |
+| 13 | SLO | 可用性/延迟 SLO 的 SLI、错误预算、状态；非法 target 400；列表/删除/重复删除 404；MCP `list_slos` |
+| 14 | MCP 查询 | `query_traces`、`get_topology` 返回结构正确；未知工具返回 `-32602` |
+| 15 | 规则持久化 | 创建指标规则与 SLO；重启 Server 后仍存在；空数据 SLO 为 `unknown`；删除生效 |
+| 16 | 崩溃 | 业务进程 `SIGSEGV` 后退出码匹配；`/api/crashes?service=e2e-crash` 可查到；事件中心有 crash 事件 |
+| 17 | 断网续传 | 停止中心 → 业务进程继续上报 → 重启中心 → 补传的 trace 完整（span 数 ≥ 3） |
 
 运行方式（也可直接 `ctest -R vmon_e2e`）：
 
@@ -68,6 +73,7 @@ python3 tests/e2e/run_e2e.py \
   --server-bin build/vmon_server \
   --agent-bin build/vmon_agent \
   --client-bin build/tests/vmon_e2e_client \
+  --backend-bin build/examples/http_backend/vmon_http_backend \
   --web-dir web
 ```
 
@@ -89,6 +95,8 @@ python3 tests/e2e/run_e2e.py \
 | 搜索 `request_id`（非 `REQ` 前缀）查不到 trace | 用户无法按业务请求号定位 | 服务端新增 `q` 统一子串搜索（忽略大小写），覆盖 trace_id/request_id/task_id/服务/Span；补单测与 E2E |
 | 进程名被写入指标 `service` | `/bin/zsh` 等进程混入服务目录 | 进程指标只写 `process`/`pid`/`threads` 标签；E2E 增加回归断言 |
 | MCP 未知工具返回 `-32603` | 与 JSON-RPC 规范不符 | 参数类错误改为 `-32602` |
+| 同槽位复用的 Span 继承上一个 Span 的 `error_code` | 正常 Span 被标成错误，影响首个错误与 SLO | 创建 Span 时清空 `frame.error_code`，补单测 |
+| `set_request_id` 指向临时 `std::string` | 后台发送线程读取时悬垂，日志 request_id 错乱 | 示例改用字符串字面量；后端用有界 ID 池；文档注明指针需活到发送 |
 
 ## 4. 已核验的安全/降级行为
 

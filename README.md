@@ -7,7 +7,10 @@ C++ 系统（10–50 节点、50–200 进程），把「人工翻多机多进�
 > 关联每个环节的日志与错误 → 给出可疑根因与证据包。
 
 - **使用手册（10 分钟上手）**：[docs/user-guide.md](docs/user-guide.md)
+- **快速诊断与定位**：[docs/quick-diagnosis.md](docs/quick-diagnosis.md)
+- **常用场景手册**：[docs/scenario-cookbook.md](docs/scenario-cookbook.md)
 - 设计方案：[plan_v1.0.md](plan_v1.0.md)
+- **详细模块设计**：[docs/module-design.md](docs/module-design.md)
 - 本轮能力补齐设计：[docs/feature-gap-design.md](docs/feature-gap-design.md)
 - Web/Python 客户端接入设计：[docs/client-observability.md](docs/client-observability.md)
 - 项目介绍 PPT：[docs/presentation/](docs/presentation/)
@@ -60,6 +63,8 @@ C++ 系统（10–50 节点、50–200 进程），把「人工翻多机多进�
 - 服务拓扑、Trace 瀑布图、日志时间窗/node/task_id 过滤；
 - 告警规则表单（保留 JSON 高级编辑）；
 - Trace 统一搜索 `q`（trace_id / request_id / task_id / 服务 / Span，忽略大小写）；
+- Python / Web 客户端 trace 接入与示例 C++ HTTP 后端；
+- 常用场景 demo（RPC/慢调用/错误/日志风暴/SLO/崩溃）与快速诊断手册；
 - Web UI 14 个视图完成真实浏览器回归。
 
 > 结论：当前版本可作为「可运行、可验证的 M1–M6 纵切」：端到端链路、日志治理、
@@ -107,12 +112,15 @@ ctest --test-dir build --output-on-failure
 | `vmon_sdk_tests` | 环形队列、span 栈、traceparent 编解码、Socket trace 头、request/task 关联 |
 | `vmon_server_tests` | 存储、链路树/关键路径/拓扑、日志聚类、规则、剖析、崩溃、证据包、命令、HTTP API、MCP |
 | `vmon_agent_tests` | WAL 轮转/封存/上限、日志 tail、进程扫描、UDS 接入、控制命令、上传与崩溃收集 |
-| `vmon_e2e` | 真实 Server + Agent + SDK 业务进程的端到端链路 |
+| `vmon_python_client` | Python 客户端 traceparent、Span 父子关系、HTTP 传播与 5xx 错误码 |
+| `vmon_web_client` | 浏览器 traceparent、fetch 注入、采样与上报回调 |
+| `vmon_e2e` | 真实 Server + Agent + SDK 业务进程 + HTTP 后端的端到端链路 |
 
-`vmon_e2e` 覆盖 15 类场景：HTTP 表面与鉴权、trace/日志多维查询（含统一搜索 `q`）、
-动态日志级别真正生效、MCP 工具与错误码、跨进程父子 Span 与拓扑边、事件生命周期、
-剖析、诊断/巡检、指标（主机 + 进程标签回归）、证据包脱敏与校验和、SLO、规则/SLO
-重启持久化、SIGSEGV 捕获上传、中心停止期间 WAL 缓存与恢复补传。
+`vmon_e2e` 覆盖 17 类场景：HTTP 表面与鉴权、trace/日志多维查询（含统一搜索 `q`）、
+动态日志级别真正生效、MCP 工具与错误码、跨进程父子 Span 与拓扑边、Python 客户端
+调用 C++ 后端（同一 trace / 错误码）、事件生命周期、剖析、诊断/巡检、指标（主机 +
+进程标签回归）、证据包脱敏与校验和、SLO、规则/SLO 重启持久化、SIGSEGV 捕获上传、
+中心停止期间 WAL 缓存与恢复补传。
 未找到 Python3 时该测试自动跳过。
 
 生成源码发布包（约 400KB，不含三方依赖）：
@@ -159,7 +167,17 @@ PORT=19428 WORK_DIR=/tmp/vmon-demo ./examples/hello/run_demo.sh
 ```
 
 脚本会打印按 `request_id=demo-request-1` 还原的 trace、关联日志、Web UI 地址和
-WAL/组件日志路径。也可以手动分三个终端运行：
+WAL/组件日志路径。
+
+常用场景（跨语言 RPC、慢调用、错误链路、日志风暴、SLO、崩溃）用一条命令演示：
+
+```bash
+python3 examples/scenarios/demo.py --scenario rpc --keep
+python3 examples/scenarios/demo.py --scenario all --keep
+```
+
+每个场景的观察顺序与产出见 [docs/scenario-cookbook.md](docs/scenario-cookbook.md)。
+也可以手动分三个终端运行：
 
 ```bash
 # 终端 1：中心服务
@@ -268,6 +286,7 @@ CplusTrace/
 ├── server/         # 中心服务
 ├── common/         # 事件模型、SHA-256
 ├── symbolizer/     # addr2line / llvm-symbolizer
+├── clients/        # Python / 浏览器 trace 客户端
 ├── tools/          # CLI / MCP stdio / crash helper
 ├── web/            # 静态 Web UI
 ├── deploy/         # 示例配置、systemd、tmpfiles

@@ -425,6 +425,143 @@ def slide_architecture(prs, n):
         "断网时 Agent 先存本地，恢复后补传。")
 
 
+def slide_modules(prs, n):
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    add_bg(slide, BG)
+    add_title(slide, "模块设计：一套事件模型，五个可替换部件",
+              "模块之间只通过事件、UDS 与 HTTP API 交互，便于独立升级")
+    panels = [
+        ("SDK / 客户端", "进程内探针", BLUE, SOFT_BLUE, [
+            ("core/", "线程本地环、Span 栈"),
+            ("trace/", "Span、traceparent"),
+            ("transport/", "发送线程、批量"),
+            ("control/", "动态日志级别"),
+            ("crash/", "崩溃兜底"),
+            ("clients/", "Python / Web 客户端"),
+            ("adapters/", "gRPC / Socket 传播"),
+        ]),
+        ("Agent", "节点采集员", TEAL, SOFT_TEAL, [
+            ("ingest", "UDS 接入"),
+            ("wal", "分段本地缓存"),
+            ("uploader", "批量上传"),
+            ("process_scan", "进程 / 主机扫描"),
+            ("log_tail", "文件日志采集"),
+            ("command_runner", "白名单只读命令"),
+            ("crash_collect", "崩溃报告收集"),
+        ]),
+        ("Server", "中心大脑", AMBER, SOFT_AMBER, [
+            ("api", "HTTP / 鉴权 / MCP"),
+            ("store", "有界内存存储"),
+            ("catalog", "服务-实例-节点"),
+            ("trace_builder", "Span 树 / 关键路径"),
+            ("log_cluster", "模板 / 指纹"),
+            ("rules + slo", "规则 / SLO"),
+            ("diagnostics", "诊断 / 证据包"),
+            ("profiler/crash", "剖析 / 崩溃"),
+        ]),
+    ]
+    for i, (title, role, color, fill, rows) in enumerate(panels):
+        x = 0.6 + i * 3.98
+        w = 3.78
+        add_rect(slide, x, 1.38, w, 4.55, WHITE, LINE,
+                 MSO_SHAPE.ROUNDED_RECTANGLE, 0.04)
+        add_rect(slide, x, 1.38, w, 0.56, fill,
+                 shape=MSO_SHAPE.ROUNDED_RECTANGLE, radius=0.08)
+        add_text(slide, x + 0.2, 1.5, w - 0.4, 0.3, title, size=13,
+                 bold=True, color=INK)
+        add_text(slide, x + w - 1.5, 1.52, 1.3, 0.25, role, size=9,
+                 bold=True, color=color, align=PP_ALIGN.RIGHT)
+        for j, (name, desc) in enumerate(rows):
+            y = 2.1 + j * 0.5
+            add_text(slide, x + 0.2, y, 1.35, 0.24, name, size=9,
+                     bold=True, color=color, name="Menlo")
+            add_text(slide, x + 1.55, y, w - 1.75, 0.3, desc, size=9,
+                     color=MUTED)
+    add_text(slide, 4.12, 3.4, 0.55, 0.25, "UDS", size=8, color=MUTED,
+             align=PP_ALIGN.CENTER)
+    add_text(slide, 8.1, 3.4, 0.55, 0.25, "HTTP", size=8, color=MUTED,
+             align=PP_ALIGN.CENTER)
+    add_rect(slide, 0.6, 6.05, 11.78, 0.55, SOFT_GRAY,
+             shape=MSO_SHAPE.ROUNDED_RECTANGLE, radius=0.1)
+    add_text(slide, 0.8, 6.17, 11.4, 0.3,
+             "common/ 事件模型与 SHA-256    ·    symbolizer/ 离线符号化    ·    "
+             "tools/ CLI、MCP、crash-helper    ·    web/ 静态 UI",
+             size=10, bold=True, color=MUTED, align=PP_ALIGN.CENTER)
+    add_footer(slide, n)
+    slide.notes_slide.notes_text_frame.text = (
+        "这一页讲代码模块，不讲运行时流程。三列分别是探针、采集员、中心，"
+        "底部是公共能力；模块之间只有事件、UDS、HTTP 三种接口。"
+        "详细类图、时序图与框架原理图见 docs/module-design.md。")
+
+
+def slide_scheduling(prs, n):
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    add_bg(slide, BG)
+    add_title(slide, "系统框架调度：线程、定时器与背压",
+              "所有耗时操作都在业务线程之外；满了就降级，不阻塞业务")
+    lanes = [
+        ("业务进程", 1.35, 1.25, SOFT_BLUE, BLUE, [
+            ("业务线程", "写 ring，无锁"),
+            ("sender 线程", "100ms / 64KB 批量"),
+            ("UDS", "JSONL 事件"),
+            ("控制 socket", "级别 / 栈 / 命令"),
+        ]),
+        ("Agent", 2.95, 1.35, SOFT_TEAL, TEAL, [
+            ("ingest", "收 UDS"),
+            ("WAL", "分段落盘"),
+            ("uploader", "200ms 上传"),
+            ("scan", "2s 进程/主机"),
+            ("log tail", "500ms 轮询"),
+            ("command", "100ms 轮询"),
+        ]),
+        ("Server", 4.7, 1.35, SOFT_AMBER, AMBER, [
+            ("HTTP 线程池", "4 线程"),
+            ("store", "有界内存"),
+            ("分析", "链路 / 聚类"),
+            ("规则 / SLO", "事件评估"),
+            ("查询 API", "只读"),
+            ("证据包", "脱敏导出"),
+        ]),
+    ]
+    for name, y, h, fill, color, boxes in lanes:
+        add_rect(slide, 0.6, y, 12.35, h, fill,
+                 shape=MSO_SHAPE.ROUNDED_RECTANGLE, radius=0.06)
+        add_text(slide, 0.8, y + 0.18, 1.65, 0.3, name, size=13, bold=True,
+                 color=INK)
+        count = len(boxes)
+        avail = 10.0
+        bw = (avail - (count - 1) * 0.12) / count
+        bx = 2.5
+        for title, body in boxes:
+            add_rect(slide, bx, y + 0.18, bw, h - 0.36, WHITE, LINE,
+                     MSO_SHAPE.ROUNDED_RECTANGLE, 0.1)
+            add_text(slide, bx + 0.05, y + 0.3, bw - 0.1, 0.24, title,
+                     size=9.5, bold=True, color=INK, align=PP_ALIGN.CENTER)
+            add_text(slide, bx + 0.05, y + 0.58, bw - 0.1, 0.45, body,
+                     size=7.8, color=MUTED, align=PP_ALIGN.CENTER,
+                     spacing=1.05)
+            bx += bw + 0.12
+    # 定时器与协议标注
+    add_text(slide, 2.6, 2.72, 9.8, 0.2,
+             "定时器：scan 2s · log tail 500ms · command 100ms · "
+             "upload 200ms · SDK flush 100ms",
+             size=8.5, color=MUTED)
+    add_text(slide, 2.6, 4.45, 9.8, 0.2,
+             "协议：UDS JSONL（SDK→Agent）  ·  HTTP NDJSON（Agent→Server）  ·  "
+             "HTTP 只读（Web/CLI/MCP→Server）",
+             size=8.5, color=MUTED)
+    add_rect(slide, 0.6, 6.25, 12.35, 0.55, NAVY,
+             shape=MSO_SHAPE.ROUNDED_RECTANGLE, radius=0.12)
+    add_text(slide, 0.8, 6.37, 11.95, 0.3,
+             "背压：队列满 → 丢弃并计数  ·  WAL 满 → 优先保错误  ·  "
+             "Store 满 → 淘汰最旧  ·  中心停机 → 恢复后补传",
+             size=9.5, bold=True, color=WHITE, align=PP_ALIGN.CENTER)
+    add_footer(slide, n)
+    slide.notes_slide.notes_text_frame.text = (
+        "这一页回答“它到底怎么跑”：业务线程只写内存环，后面全是独立线程和定时器。"
+        "任何一级满了都走背压，不反向阻塞业务。")
+
+
 def slide_model(prs, n):
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     add_bg(slide, BG)
@@ -943,7 +1080,7 @@ def slide_innovation(prs, n):
         ("05", "对生产零影响",
          "fail-open、热路径无锁、\n崩溃处理 async-signal-safe。"),
         ("06", "全链路可验证",
-         "116 个单元测试、\n15 类端到端场景。"),
+         "132 个测试、\n17 类端到端场景。"),
     ]
     for i, (num, title, body) in enumerate(items):
         x = LEFT + (i % 3) * 4.05
@@ -972,7 +1109,7 @@ def slide_scenarios(prs, n):
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     add_bg(slide, BG)
     add_title(slide, "四个高频场景，直接照着做",
-              "每个场景都对应固定的输入、观察面和产出")
+              "每个场景都有 demo 命令：先看输入，再看观察面，最后拿产出")
     items = [
         ("跨进程超时", "输入：request_id / trace_id",
          "看到：哪一跳耗时最长、对端状态",
@@ -1002,12 +1139,132 @@ def slide_scenarios(prs, n):
                  color=INK)
         add_text(slide, x + 0.25, y + 1.45, 5.2, 0.4, out, size=11,
                  bold=True, color=color)
-    add_text(slide, LEFT, 6.55, WIDTH, 0.3,
-             "共同点：先按请求/服务收口，再下钻；每一步都有可复核的证据。",
-             size=12, color=MUTED, align=PP_ALIGN.CENTER)
+    add_text(slide, LEFT, 6.5, WIDTH, 0.3,
+             "./examples/scenarios/demo.py --scenario rpc|slow|error|logstorm|slo|crash --keep",
+             size=10.5, bold=True, color=BLUE_DARK, align=PP_ALIGN.CENTER,
+             name="Menlo")
     add_footer(slide, n)
     slide.notes_slide.notes_text_frame.text = (
         "用四个真实场景让听众代入：不是讲功能列表，而是讲“遇到这事怎么用”。")
+
+
+def slide_quick_diagnosis(prs, n):
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    add_bg(slide, BG)
+    add_title(slide, "快速诊断三步法：收口 → 定位 → 证据",
+              "把“先翻所有日志”改成“先锁定一条请求”")
+    steps = [
+        ("①", "收口", "request_id / trace_id / task_id\n或服务 + 时间窗",
+         "不用先登录每台机器"),
+        ("②", "定位", "首个错误、最慢 Span、关键路径\n拓扑边确认影响面",
+         "先看结论，再看细节"),
+        ("③", "证据", "关联日志、模板指纹\n诊断结论、脱敏证据包",
+         "复盘有共同事实"),
+    ]
+    for i, (num, title, body, note) in enumerate(steps):
+        y = 1.5 + i * 1.55
+        add_rect(slide, LEFT, y, 0.62, 0.62, BLUE,
+                 shape=MSO_SHAPE.ROUNDED_RECTANGLE, radius=0.25)
+        add_text(slide, LEFT, y + 0.16, 0.62, 0.3, num, size=16, bold=True,
+                 color=WHITE, align=PP_ALIGN.CENTER)
+        add_text(slide, LEFT + 0.8, y - 0.02, 1.8, 0.35, title, size=18,
+                 bold=True, color=INK)
+        add_text(slide, LEFT + 0.8, y + 0.38, 4.6, 0.65, body, size=11.5,
+                 color=MUTED, spacing=1.2)
+        add_text(slide, LEFT + 0.8, y + 0.98, 4.6, 0.25, note, size=9.5,
+                 bold=True, color=BLUE)
+
+    add_rect(slide, 6.55, 1.5, 5.85, 4.65, WHITE, LINE,
+             MSO_SHAPE.ROUNDED_RECTANGLE, 0.05)
+    add_text(slide, 6.8, 1.65, 5.3, 0.3, "同一个故障，两条路径", size=12,
+             bold=True, color=MUTED)
+    add_text(slide, 6.8, 2.05, 2.55, 0.3, "传统", size=12, bold=True,
+             color=RED)
+    add_text(slide, 9.5, 2.05, 2.6, 0.3, "vmon", size=12, bold=True,
+             color=TEAL)
+    old_path = ["登录多台机器", "grep 多个日志文件", "人工对齐时间戳",
+                "拼出跨进程链路", "凭经验猜根因"]
+    new_path = ["输入 request_id", "看首个错误 / 最慢 Span",
+                "看关键路径与拓扑", "下钻关联日志", "导出证据包"]
+    for i, text in enumerate(old_path):
+        y = 2.45 + i * 0.52
+        add_text(slide, 6.8, y, 2.5, 0.28, text, size=10, color=MUTED)
+        add_text(slide, 6.8, y + 0.23, 2.5, 0.2, "~", size=9, color=LINE)
+    for i, text in enumerate(new_path):
+        y = 2.45 + i * 0.52
+        add_text(slide, 9.5, y, 2.6, 0.28, text, size=10, color=INK)
+    add_rect(slide, 6.8, 5.15, 5.3, 0.75, SOFT_TEAL,
+             shape=MSO_SHAPE.ROUNDED_RECTANGLE, radius=0.1)
+    add_text(slide, 6.95, 5.27, 5.0, 0.55,
+             "30–120 分钟、依赖个人经验\n→ 1–5 分钟、证据可复核",
+             size=10.5, bold=True, color=TEAL, spacing=1.2)
+    add_text(slide, LEFT, 6.35, WIDTH, 0.55,
+             "优势来源：错误优先的日志治理 · 强/弱边分离 · 一条请求串起链路与指标 · "
+             "证据包可带走",
+             size=11, bold=True, color=BLUE_DARK, align=PP_ALIGN.CENTER)
+    add_footer(slide, n)
+    slide.notes_slide.notes_text_frame.text = (
+        "这一页是给不了解系统的人看的：同一件事，传统路径和 vmon 路径的步骤与耗时对比。"
+        "强调不是功能多，而是路径短、证据可复核。")
+
+
+def slide_clients(prs, n):
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    add_bg(slide, BG)
+    add_title(slide, "客户端接入：Python / Web 也是链路起点",
+              "已支持：传播优先，后端仍是业务真相源")
+    # 左侧拓扑
+    add_rect(slide, 0.6, 1.5, 12.35, 3.45, WHITE, LINE,
+             MSO_SHAPE.ROUNDED_RECTANGLE, 0.04)
+    boxes = [
+        (1.0, 1.7, 2.2, 0.7, "浏览器", SOFT_BLUE, BLUE),
+        (3.85, 1.7, 2.2, 0.7, "BFF / 网关", SOFT_GRAY, MUTED),
+        (3.85, 3.15, 2.2, 0.7, "Python 服务", SOFT_TEAL, TEAL),
+        (6.65, 1.8, 2.35, 1.95, "C++ 后端（SDK）", SOFT_AMBER, AMBER),
+        (9.5, 2.35, 2.6, 0.7, "vmon-server", RGBColor(0xEF, 0xEC, 0xFD),
+         RGBColor(0x6D, 0x5B, 0xE7)),
+    ]
+    for x, y, w, h, text, fill, color in boxes:
+        add_rect(slide, x, y, w, h, fill, color,
+                 MSO_SHAPE.ROUNDED_RECTANGLE, 0.1)
+        add_text(slide, x, y + 0.18, w, 0.3, text, size=10.5, bold=True,
+                 color=INK, align=PP_ALIGN.CENTER)
+    add_arrow(slide, 3.25, 1.95, 0.4, 0.2, BLUE)
+    add_arrow(slide, 6.1, 1.95, 0.4, 0.2, BLUE)
+    add_arrow(slide, 6.1, 3.4, 0.4, 0.2, TEAL)
+    add_arrow(slide, 9.05, 2.6, 0.4, 0.2, BLUE)
+    add_text(slide, 2.0, 2.5, 3.5, 0.25, "traceparent / x-request-id", size=8.5,
+             color=MUTED)
+    add_text(slide, 4.9, 2.9, 2.4, 0.25, "同一条 trace", size=8.5, color=MUTED)
+    add_text(slide, 7.0, 3.9, 2.5, 0.25, "Agent → Server（SDK 上报）", size=8.5,
+             color=MUTED)
+    add_text(slide, 7.0, 2.4, 2.3, 0.4, "续接父上下文\n创建 server span", size=8.5,
+             color=MUTED, align=PP_ALIGN.CENTER, spacing=1.1)
+    add_text(slide, 9.3, 3.2, 3.5, 0.25,
+             "Python 事件可直报 /v1/ingest", size=8.5, color=MUTED)
+    add_text(slide, 1.05, 4.5, 11.5, 0.3,
+             "浏览器不直连中心写接口：由 BFF 统一鉴权、注入上下文、采样上报。",
+             size=9.5, color=MUTED)
+
+    # 右侧代码与要点
+    add_text(slide, 0.6, 5.15, 5.0, 0.3, "Python：一个上下文管理器", size=11,
+             bold=True, color=INK)
+    add_code(slide, 0.6, 5.45, 5.9, 1.35,
+             "with client.span(\"GET /orders\", request_id=\"REQ-1\"):\n"
+             "    client.request(\"GET\", backend + \"/api/orders\")")
+    add_text(slide, 6.85, 5.15, 6.1, 0.3, "C++ 后端：从头恢复父上下文", size=11,
+             bold=True, color=INK)
+    add_code(slide, 6.85, 5.45, 6.1, 1.35,
+             "vmon::SpanContext parent;\n"
+             "if (vmon::context_from_traceparent(h, &parent))\n"
+             "  auto span = vmon::create_span_with_parent(\n"
+             "      parent, \"Handle\", __FILE__, __LINE__);")
+    add_pill(slide, 10.7, 1.12, 2.1, "已支持 · E2E 覆盖", color=TEAL,
+             fill=SOFT_TEAL, size=10)
+    add_footer(slide, n)
+    slide.notes_slide.notes_text_frame.text = (
+        "上游不是盲区：Python/浏览器生成 trace 起点，后端用同一个 traceparent 续接。"
+        "浏览器只上报给 BFF，不直接持有中心写 token。")
 
 
 def slide_adoption(prs, n):
@@ -1103,7 +1360,8 @@ def slide_roadmap(prs, n):
         "崩溃捕获、离线符号化、指纹聚合",
         "SLO、事件闭环、规则表单",
         "一键诊断 / 巡检、脱敏证据包",
-        "116 个单元测试 + 15 类端到端场景",
+        "Python / Web 客户端 trace 接入",
+        "132 个测试 + 17 类端到端场景",
     ]
     add_bullets(slide, LEFT + 0.3, 2.18, 5.35, 3.3, done, size=11.5,
                 gap=0.14)
@@ -1118,7 +1376,7 @@ def slide_roadmap(prs, n):
         "通知渠道：Webhook / 邮件 / syslog",
         "gRPC streaming / 异步拦截与 eBPF 弱边",
         "常驻 CPU / 内存 / 锁剖析",
-        "Python / Web 客户端的 trace 接入",
+        "BFF 聚合前端事件 / OTLP 接入",
         "长期存储（VictoriaMetrics / Parquet）",
         "Linux aarch64 / gcc 7.3 实机验证",
         "72 小时长稳与混沌测试",
@@ -1171,11 +1429,11 @@ def slide_end(prs, n):
              size=12, bold=True, color=WHITE, name="Menlo")
     add_text(slide, 9.25, 3.45, 3.05, 0.3, "http://127.0.0.1:18428/",
              size=11, color=RGBColor(0xD3, 0xDF, 0xEE), name="Menlo")
-    add_text(slide, 9.25, 4.0, 3.05, 1.6,
+    add_text(slide, 9.25, 4.0, 3.05, 1.7,
              "使用手册：docs/user-guide.md\n"
-             "设计文档：plan_v1.0.md\n"
-             "验收记录：docs/verification.md",
-             size=10.5, color=RGBColor(0xB9, 0xC6, 0xD8), spacing=1.5)
+             "快速诊断：docs/quick-diagnosis.md\n"
+             "场景手册：docs/scenario-cookbook.md",
+             size=10, color=RGBColor(0xB9, 0xC6, 0xD8), spacing=1.5)
     add_footer(slide, n, dark=True)
     slide.notes_slide.notes_text_frame.text = (
         "收尾只留三句话，方便听众记住。最后给出启动命令和文档位置。")
@@ -1249,21 +1507,25 @@ def main():
     slide_pain(prs, 3)
     slide_goal(prs, 4)
     slide_architecture(prs, 5)
-    slide_model(prs, 6)
-    slide_principle(prs, 7)
-    slide_internals(prs, 8)
-    slide_trace_assembly(prs, 9)
-    slide_reliability(prs, 10)
-    slide_capabilities(prs, 11)
-    slide_trace(prs, 12)
-    slide_logs(prs, 13)
-    slide_event(prs, 14)
-    slide_innovation(prs, 15)
-    slide_scenarios(prs, 16)
-    slide_adoption(prs, 17)
-    slide_compare(prs, 18)
-    slide_roadmap(prs, 19)
-    slide_end(prs, 20)
+    slide_modules(prs, 6)
+    slide_scheduling(prs, 7)
+    slide_model(prs, 8)
+    slide_principle(prs, 9)
+    slide_internals(prs, 10)
+    slide_trace_assembly(prs, 11)
+    slide_reliability(prs, 12)
+    slide_capabilities(prs, 13)
+    slide_trace(prs, 14)
+    slide_logs(prs, 15)
+    slide_event(prs, 16)
+    slide_innovation(prs, 17)
+    slide_scenarios(prs, 18)
+    slide_quick_diagnosis(prs, 19)
+    slide_clients(prs, 20)
+    slide_adoption(prs, 21)
+    slide_compare(prs, 22)
+    slide_roadmap(prs, 23)
+    slide_end(prs, 24)
 
     out_dir = os.path.dirname(os.path.abspath(__file__))
     out = os.path.join(out_dir, "vmon-intro.pptx")

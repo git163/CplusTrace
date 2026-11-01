@@ -34,6 +34,10 @@ import uuid
 TOKEN = "e2e-token"
 NODE = "e2e-node"
 
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.join(REPO_ROOT, "clients", "python"))
+import vmon_trace  # noqa: E402  (路径注入必须在 import 之前)
+
 
 class E2EFailure(RuntimeError):
     pass
@@ -202,6 +206,7 @@ class Harness:
         self.api = Api(self.base_url)
         self.server = None
         self.agent = None
+        self.backend = None
         self.clients = []
         self.uds = os.path.join(self.work_dir, "agent.sock")
         self.control_dir = os.path.join(self.work_dir, "ctrl")
@@ -210,11 +215,15 @@ class Harness:
         self.server_state = os.path.join(self.work_dir, "server-state")
         self.server_log = os.path.join(self.work_dir, "server.log")
         self.agent_log = os.path.join(self.work_dir, "agent.log")
+        self.backend_port = free_port()
+        self.backend_url = "http://127.0.0.1:%d" % self.backend_port
+        self.backend_log = os.path.join(self.work_dir, "backend.log")
         for path in (self.control_dir, self.crash_dir, self.agent_state,
                      self.server_state):
             os.makedirs(path, exist_ok=True)
         self._server_log_handle = None
         self._agent_log_handle = None
+        self._backend_log_handle = None
 
     # ------------------------------------------------------------ 进程管理
     def server_command(self):
@@ -306,6 +315,43 @@ class Harness:
                 self.agent.wait(timeout=5)
         self.agent = None
 
+    def _backend_ready(self):
+        try:
+            with urllib.request.urlopen(
+                    self.backend_url + "/health", timeout=1) as response:
+                return 200 <= response.status < 300
+        except Exception:
+            return False
+
+    def start_backend(self):
+        """启动使用真实 SDK 的 HTTP 后端，用于 Python/Web 客户端链路测试。"""
+        self._backend_log_handle = open(self.backend_log, "a", encoding="utf-8")
+        env = os.environ.copy()
+        env["VMON_AGENT_ENDPOINT"] = self.uds
+        env["VMON_CONTROL_DIR"] = self.control_dir
+        env["VMON_CRASH_DIR"] = self.crash_dir
+        self.backend = subprocess.Popen(
+            [self.args.backend_bin, "--host", "127.0.0.1",
+             "--port", str(self.backend_port)],
+            stdout=self._backend_log_handle,
+            stderr=subprocess.STDOUT,
+            env=env,
+        )
+        wait_for(self._backend_ready, 15, "HTTP 后端健康检查")
+        log("http backend 已启动: %s" % self.backend_url)
+
+    def stop_backend(self):
+        if self.backend is None:
+            return
+        if self.backend.poll() is None:
+            self.backend.send_signal(signal.SIGTERM)
+            try:
+                self.backend.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                self.backend.kill()
+                self.backend.wait(timeout=5)
+        self.backend = None
+
     def start_client(self, request_id, mode="normal", duration_ms=15000,
                      service="e2e-client", trace_id="", parent_span_id="",
                      root_name="", hold_ms=5000):
@@ -359,9 +405,11 @@ class Harness:
                     process.wait(timeout=5)
                 except subprocess.TimeoutExpired:
                     pass
+        self.stop_backend()
         self.stop_agent()
         self.stop_server()
-        for handle in (self._server_log_handle, self._agent_log_handle):
+        for handle in (self._server_log_handle, self._agent_log_handle,
+                       self._backend_log_handle):
             if handle:
                 handle.close()
         if self.args.keep:
@@ -372,6 +420,7 @@ class Harness:
     def dump_logs(self):
         log("--- server.log ---\n%s" % read_log(self.server_log))
         log("--- agent.log ---\n%s" % read_log(self.agent_log))
+        log("--- backend.log ---\n%s" % read_log(self.backend_log))
 
 
 # ---------------------------------------------------------------- 断言辅助
@@ -390,6 +439,13 @@ def find_service_in_trace(detail, service):
     for root in detail.get("roots", []):
         walk_spans(root, found)
     return any(item.get("service") == service for item in found)
+
+
+def collect_spans(detail):
+    spans = []
+    for root in detail.get("roots", []):
+        walk_spans(root, spans)
+    return spans
 
 
 def verify_trace_and_logs(harness, request_id):
@@ -519,12 +575,18 @@ def verify_queries(harness, request_id, context, pid):
     if pid not in [item.get("pid") for item in match[0].get("instance_details", [])]:
         raise E2EFailure("服务实例中没有目标 pid=%d" % pid)
 
-    nodes = harness.api.ok("GET", "/api/nodes")
-    node = [item for item in nodes if item.get("name") == NODE]
-    if not node or node[0].get("process_count", 0) < 1:
-        raise E2EFailure("节点视图没有进程: %r" % node)
-    if not any(item.get("pid") == pid for item in node[0].get("processes", [])):
-        raise E2EFailure("节点进程快照中没有 pid=%d" % pid)
+    def node_ready():
+        nodes = harness.api.ok("GET", "/api/nodes")
+        node = [item for item in nodes if item.get("name") == NODE]
+        if not node or node[0].get("process_count", 0) < 1:
+            return None
+        if not any(item.get("pid") == pid
+                   for item in node[0].get("processes", [])):
+            return None
+        return node[0]
+
+    # 进程扫描有固定周期，刚启动时快照可能还没包含目标进程。
+    node = wait_for(node_ready, 15, "节点进程快照包含 pid=%d" % pid)
 
     overview = harness.api.ok("GET", "/api/overview")
     if overview.get("trace_count_5m", 0) < 1 or overview.get("log_count", 0) < 1:
@@ -623,6 +685,85 @@ def verify_cross_process(harness):
 
     harness.wait_client(parent, 15)
     log("PASS 跨进程链路: trace=%s 两个服务、父子 span 与拓扑边均正确" % trace_id)
+
+
+def verify_python_rpc(harness):
+    """Python 客户端调用 C++ HTTP 后端：同一条 trace、父子 Span、错误标记。"""
+    request_id = "e2e-py-" + uuid.uuid4().hex[:10]
+    task_id = "task-" + request_id
+    client = vmon_trace.Client(
+        harness.base_url, TOKEN, service="e2e-python", instance="py-1",
+        node=NODE, flush_interval=0.1)
+    try:
+        with client.span("Python/CallBackend", request_id=request_id,
+                         task_id=task_id) as span:
+            status, payload = client.request(
+                "POST", harness.backend_url + "/api/echo",
+                body={"hello": "world"}, request_id=request_id,
+                task_id=task_id)
+            if status != 200:
+                raise E2EFailure("Python 调用后端返回 %s: %r" % (status, payload))
+            span.set_attr("client.kind", "python")
+        # 第二次调用强制后端报错，验证错误码能从 C++ 回传到整条 trace。
+        error_request = request_id + "-err"
+        with client.span("Python/CallBackendError", request_id=error_request,
+                         task_id=task_id):
+            status, _ = client.request(
+                "POST", harness.backend_url + "/api/echo",
+                body={"hello": "error"}, request_id=error_request,
+                task_id=task_id, headers={"x-vmon-force-error": "1"})
+            if status != 500:
+                raise E2EFailure("强制错误调用应返回 500，实际 %s" % status)
+        client.flush()
+    finally:
+        client.close()
+
+    def ready():
+        data = harness.api.ok(
+            "GET", "/api/requests/" + urllib.parse.quote(request_id))
+        traces = data.get("traces", [])
+        if not traces or len(collect_spans(traces[0])) < 2:
+            return None
+        messages = " ".join(item.get("msg", "") for item in data.get("logs", []))
+        return data if "http backend handled" in messages else None
+
+    request = wait_for(ready, 30, "Python + C++ 后端 trace 到达")
+    detail = request["traces"][0]
+    spans = collect_spans(detail)
+    py_spans = [item for item in spans if item.get("service") == "e2e-python"]
+    backend_spans = [item for item in spans if item.get("service") == "http-backend"]
+    if not py_spans or not backend_spans:
+        raise E2EFailure("trace 缺少 Python 或后端服务: %r" % [
+            item.get("service") for item in spans])
+    root = py_spans[0]
+    backend = backend_spans[0]
+    if backend.get("trace_id") != root.get("trace_id"):
+        raise E2EFailure("Python 与后端 trace_id 不一致")
+    if backend.get("parent_span_id") != root.get("span_id"):
+        raise E2EFailure("后端 span 的父节点不是 Python span: %r vs %r" % (
+            backend.get("parent_span_id"), root.get("span_id")))
+    if detail["summary"]["service_count"] < 2:
+        raise E2EFailure("Python 链路服务数不足: %r" % detail["summary"])
+
+    log_text = " ".join(item.get("msg", "") for item in detail.get("logs", []))
+    if "http backend handled" not in log_text:
+        raise E2EFailure("trace 中缺少后端处理日志: %r" % detail.get("logs", [])[:3])
+
+    def error_ready():
+        data = harness.api.ok(
+            "GET", "/api/requests/" + urllib.parse.quote(request_id + "-err"))
+        traces = data.get("traces", [])
+        if traces and traces[0]["summary"].get("has_error"):
+            return data
+        return None
+
+    error_request = wait_for(error_ready, 30, "Python 错误链路到达")
+    error_detail = error_request["traces"][0]
+    error_code = (error_detail.get("first_error") or {}).get("error_code", "")
+    if error_code not in ("E_ECHO", "E_HTTP_500"):
+        raise E2EFailure("首个错误码不正确: %r" % error_detail.get("first_error"))
+    log("PASS Python RPC: trace=%s Python 与 C++ 后端同一链路，错误码=%s" % (
+        root.get("trace_id"), error_code))
 
 
 def verify_events_lifecycle(harness):
@@ -1071,6 +1212,7 @@ def main():
     parser.add_argument("--server-bin", required=True)
     parser.add_argument("--agent-bin", required=True)
     parser.add_argument("--client-bin", required=True)
+    parser.add_argument("--backend-bin", required=True)
     parser.add_argument("--web-dir", required=True)
     parser.add_argument("--keep", action="store_true", help="保留临时目录")
     args = parser.parse_args()
@@ -1080,6 +1222,7 @@ def main():
     try:
         harness.start_server()
         harness.start_agent()
+        harness.start_backend()
 
         request_id = "e2e-req-" + uuid.uuid4().hex[:10]
         process, _, pid, context = harness.start_client(
@@ -1091,6 +1234,7 @@ def main():
         verify_dynamic_level(harness, request_id, pid)
         verify_mcp(harness, request_id)
         verify_cross_process(harness)
+        verify_python_rpc(harness)
         verify_events_lifecycle(harness)
         verify_profiles(harness)
         verify_diagnose(harness, request_id)

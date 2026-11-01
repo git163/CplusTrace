@@ -4,15 +4,30 @@ add_executable(vmon_e2e_client e2e/e2e_client.cpp)
 target_link_libraries(vmon_e2e_client PRIVATE vmon)
 
 find_package(Python3 COMPONENTS Interpreter QUIET)
-if(Python3_Interpreter_FOUND)
+if(Python3_Interpreter_FOUND AND TARGET vmon_http_backend)
   add_test(NAME vmon_e2e
     COMMAND Python3::Interpreter
       ${CMAKE_CURRENT_SOURCE_DIR}/e2e/run_e2e.py
       --server-bin $<TARGET_FILE:vmon_server>
       --agent-bin $<TARGET_FILE:vmon_agent>
       --client-bin $<TARGET_FILE:vmon_e2e_client>
+      --backend-bin $<TARGET_FILE:vmon_http_backend>
       --web-dir ${CMAKE_SOURCE_DIR}/web)
   set_tests_properties(vmon_e2e PROPERTIES TIMEOUT 240)
+
+  # Python 客户端单测：traceparent 编解码、Span 父子关系、HTTP 传播。
+  add_test(NAME vmon_python_client
+    COMMAND Python3::Interpreter -m unittest discover
+      -s ${CMAKE_SOURCE_DIR}/clients/python -p test_*.py)
+  set_tests_properties(vmon_python_client PROPERTIES TIMEOUT 60)
+
+  find_program(NODE_EXECUTABLE node)
+  if(NODE_EXECUTABLE)
+    add_test(NAME vmon_web_client
+      COMMAND ${NODE_EXECUTABLE} --test
+        ${CMAKE_SOURCE_DIR}/clients/web/test_vmon_trace.js)
+    set_tests_properties(vmon_web_client PROPERTIES TIMEOUT 60)
+  endif()
 else()
   message(STATUS "未找到 Python3，跳过端到端测试 vmon_e2e")
 endif()

@@ -76,16 +76,19 @@ BFF 已经在内网、已有会话鉴权，由它统一注入上下文，最安�
 如果对方已有 OpenTelemetry，可直接把 OTLP 发到 Agent（新增 OTLP/HTTP receiver）
 或中心。此方案复用标准协议，但会引入 protobuf 依赖与额外端口，放在二期。
 
-## 3. 需要补的能力
+## 3. 已实现与待补能力
 
-| 能力 | 现状 | 需要做什么 | 优先级 |
-|---|---|---|---|
-| HTTP header 提取 `traceparent` | SDK/适配层已有编解码 | 在业务 HTTP 入口调用提取并 `create_span_with_parent` | P0 |
-| gRPC metadata 提取 | 适配层有传播函数 | 按目标 gRPC 版本接入 server interceptor | P0 |
-| `x-request-id` / `x-task-id` 透传 | 已有 `set_request_id` / `set_task_id` | 在入口统一读取并设置 | P0 |
-| Python 轻量客户端 | 无 | `vmon-py`：requests/grpc 包装 + 采样 + 失败静默 | P1 |
-| 前端事件上报 | 无 | BFF 聚合接口，限流 + 采样 + 字段白名单 | P2 |
-| OTLP 接入 | 无 | Agent 增加 OTLP/HTTP receiver | P2 |
+| 能力 | 状态 | 说明 |
+|---|---|---|
+| HTTP header 提取 `traceparent` | **已实现** | `vmon::context_from_traceparent()`；示例见 `examples/http_backend` |
+| `x-request-id` / `x-task-id` 透传 | **已实现** | Python/Web 客户端与 C++ 入口统一读取 |
+| Python 轻量客户端 | **已实现** | `clients/python/vmon_trace.py`：Span、HTTP 包装、批量上报、失败静默 |
+| Web 客户端传播 | **已实现** | `clients/web/vmon-trace.js`：traceparent 注入、fetch 包装、采样与上报回调 |
+| 后端续接示例 | **已实现** | `examples/http_backend` 接收 Python/Web 调用并创建子 Span |
+| 端到端验证 | **已实现** | E2E 覆盖 Python → C++ 后端 → Server 的同一 trace 与错误码 |
+| gRPC metadata 提取 | 部分 | 传播函数已有；server interceptor 需按目标 gRPC 版本接入 |
+| 前端事件 BFF 聚合 | 待补 | 浏览器只提供上报回调，BFF 侧接口需按实际网关实现 |
+| OTLP 接入 | 待补 | Agent 增加 OTLP/HTTP receiver |
 
 ## 4. 不建议做的事
 
@@ -97,12 +100,53 @@ BFF 已经在内网、已有会话鉴权，由它统一注入上下文，最安�
 
 ## 5. 分阶段落地
 
-| 阶段 | 内容 | 产出 | 预估 |
-|---|---|---|---|
-| P0 | 约定 header；C++ 入口提取示例；文档与联调 demo | 一条 trace 从 Python 打进后端 C++ | 1–2 天 |
-| P1 | `vmon-py` 轻量包（client span + 失败静默） | Python 侧自动埋点 | 3–5 天 |
-| P2 | BFF 聚合前端事件；OTLP receiver | Web/第三方接入 | 1–2 周 |
-| P3 | 前端 UX 指标、会话关联（可选） | 页面级体验视图 | 按需 |
+| 阶段 | 内容 | 状态 |
+|---|---|---|
+| P0 | header 约定、C++ 入口提取、文档与联调 demo | **已完成**（`context_from_traceparent`） |
+| P1 | Python 轻量客户端（client span + 失败静默） | **已完成**（`clients/python`） |
+| P2 | Web 端传播与事件回调 | **已完成**（`clients/web`） |
+| P3 | BFF 聚合接口、OTLP receiver、前端 UX 指标 | 待按实际网关/需求接入 |
+
+### 3.1 快速使用
+
+Python：
+
+```python
+from vmon_trace import Client
+
+client = Client("http://127.0.0.1:18428", "dev-token",
+                service="py-bff", node="node-1")
+with client.span("GET /orders", request_id="REQ-1") as span:
+    status, body = client.request(
+        "GET", "http://backend:9000/api/orders", request_id="REQ-1")
+    span.set_attr("http.status_code", status)
+client.close()
+```
+
+C++ 后端入口：
+
+```cpp
+vmon::SpanContext parent;
+if (vmon::context_from_traceparent(
+        req.get_header_value("traceparent").c_str(), &parent)) {
+  vmon::Span span = vmon::create_span_with_parent(
+      parent, "HTTP/Handle", __FILE__, __LINE__);
+}
+```
+
+浏览器：
+
+```js
+const tracedFetch = vmonTrace.instrumentFetch(window.fetch, {
+  service: "web-console",
+  requestId: "REQ-1",
+  report: (event) => navigator.sendBeacon("/bff/vmon/events",
+                                          JSON.stringify(event))
+});
+```
+
+完整说明见 [clients/python/README.md](../clients/python/README.md)、
+[clients/web/README.md](../clients/web/README.md)。
 
 ## 6. 验收标准
 
