@@ -9,6 +9,7 @@ C++ 系统（10–50 节点、50–200 进程），把「人工翻多机多进�
 - **使用手册（10 分钟上手）**：[docs/user-guide.md](docs/user-guide.md)
 - **快速诊断与定位**：[docs/quick-diagnosis.md](docs/quick-diagnosis.md)
 - **常用场景手册**：[docs/scenario-cookbook.md](docs/scenario-cookbook.md)
+- **示例与演示指南（含截图）**：[examples/README.md](examples/README.md)
 - 设计方案：[plan_v1.0.md](plan_v1.0.md)
 - **详细模块设计**：[docs/module-design.md](docs/module-design.md)
 - 本轮能力补齐设计：[docs/feature-gap-design.md](docs/feature-gap-design.md)
@@ -53,7 +54,7 @@ C++ 系统（10–50 节点、50–200 进程），把「人工翻多机多进�
 | M3 全链路 | trace 树、关键路径、服务拓扑与强弱边、按 request/trace/task 查询、跨进程链路与进程内 span 融合、Socket 24 字节 trace 头编解码；gRPC streaming 辅助器与 eBPF 弱边接口（编译开关） | 具体 gRPC/异步 interceptor、Socket 协议、eBPF collector 需目标环境接入；尾部采样未实现 |
 | M4 崩溃诊断 | SDK async-signal-safe 崩溃报告、Agent 收集上传、指纹聚合、`addr2line`/`llvm-symbolizer` 离线符号化接口、`core_pattern` helper、事件中心联动 | 未自动关联发布记录；未解析完整 core/minidump |
 | M5 性能剖析 | 折叠栈导入/聚合、Top self/inclusive、火焰图 JSON、证据包集成、按需诊断接口；可选 `SIGPROF` 常驻采样（编译开关） | `perf` 采集、内存/锁/IO 剖析未实现；SIGPROF 仅诊断版 |
-| M6 告警与内部 AI | 规则引擎（心跳缺失、错误突增、慢 trace、指标阈值）、事件中心、静默/冷却、一键巡检、诊断编排、证据包（脱敏 + SHA-256 清单）、MCP 只读工具、systemd/tmpfiles | 通知渠道（Webhook/邮件/syslog）未实现；无 72 小时长稳与混沌脚本 |
+| M6 告警与内部 AI | 规则引擎、事件中心、静默/分组、Webhook、异常追踪 Issue、一键巡检、诊断编排、证据包、MCP、systemd/tmpfiles | 邮件/syslog 通知未实现；无 72 小时长稳与混沌脚本 |
 | 本轮补齐 | 主机/进程指标、SLO 与错误预算、事件 resolve/筛选、服务拓扑、Trace 瀑布图、日志时间窗/node/task_id、规则表单、Trace 统一搜索、Python/Web 客户端接入、常用场景 demo、模块/类/时序/原理图、Web UI 全量回归 | 通知渠道、常驻 CPU 采样、eBPF、gRPC streaming 仍为非目标/二期 |
 
 本轮在 M1–M6 纵切之上补齐了高频维测能力：
@@ -117,8 +118,8 @@ ctest --test-dir build --output-on-failure
 | CTest 名称 | 内容 |
 |---|---|
 | `vmon_sdk_tests` | 环形队列、span 栈、traceparent 编解码、Socket trace 头、request/task 关联 |
-| `vmon_server_tests` | 存储、链路树/关键路径/拓扑、日志聚类、规则、剖析、崩溃、证据包、命令、HTTP API、MCP |
-| `vmon_agent_tests` | WAL 轮转/封存/上限、日志 tail、进程扫描、UDS 接入、控制命令、上传与崩溃收集 |
+| `vmon_server_tests` | 存储、链路树/关键路径/拓扑、日志聚类、规则、SLO、Issue、静默、仪表板、剖析、崩溃、证据包、命令、HTTP API、MCP |
+| `vmon_agent_tests` | WAL 轮转/封存/上限、日志 tail、进程扫描、HTTP 拨测、UDS 接入、控制命令、上传与崩溃收集 |
 | `vmon_python_client` | Python 客户端 traceparent、Span 父子关系、HTTP 传播与 5xx 错误码 |
 | `vmon_web_client` | 浏览器 traceparent、fetch 注入、采样与上报回调 |
 | `vmon_e2e` | 真实 Server + Agent + SDK 业务进程 + HTTP 后端的端到端链路 |

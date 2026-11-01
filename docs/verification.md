@@ -12,8 +12,10 @@ M1–M6 已完成一条可运行、可测试的纵向能力链：
 - 按 `request_id` 可还原 trace 树、关键路径与关联日志；
 - 动态日志级别命令可下发到业务进程并在 TTL 后自动恢复；
 - 日志模板聚类、规则/事件、崩溃捕获、剖析数据面、证据包、MCP 均可用；
+- 异常追踪 Issue、告警静默/分组、HTTP 拨测、仪表板/快照已落地；
+- 可选 CPU SIGPROF 采样有独立编译开关，默认不进入生产构建；
 - 中心服务停机期间 Agent 本地缓存，恢复后自动补传；
-- 单元测试与端到端测试全部通过。
+- 单元测试、客户端测试与端到端测试全部通过。
 
 完整构建与测试命令：
 
@@ -130,10 +132,12 @@ python3 examples/scenarios/demo.py --scenario all
    interceptor 需按目标工程 gRPC 版本接入（旧版 gRPC 可能无 C++ interceptor）。
    `vmon_attach(target)` 已提供业务侧一行链接入口。
 2. Socket 仅提供 24 字节 trace 头编解码（`adapters/ipc/socket_header.h`），
-   尚未接入具体 Socket 协议、连接级关联；eBPF 弱边、gRPC streaming/异步、尾部采样未实现。
+   尚未接入具体 Socket 协议与连接级关联；eBPF 弱边、gRPC streaming 已提供
+   编译开关与接口层（`adapters/bpf/weak_edge.h`、`adapters/grpc/streaming.h`），
+   真正 collector/interceptor 需目标环境接入；尾部采样未实现。
 3. 线程池/队列/回调 drop-in 包装器与 `causality.id` 自动传递未实现。
 4. 常驻 CPU `SIGPROF` 采样已实现但默认不编译，需 `-DVMON_ENABLE_CPU_PROFILER=ON` 的诊断版；内存/锁/IO 剖析、perf 仍未实现。eBPF/gRPC streaming 仅提供编译开关与接口层，需目标环境验证。
-5. 通知渠道（Webhook/邮件/syslog）未实现。
+5. Webhook 通知已实现；邮件/syslog 通知未实现。
 6. 平台注册中心 API 对接、Parquet 落盘、发布记录关联未实现。
 7. 72 小时长稳、磁盘写满、时钟跳变等混沌测试尚未自动化。
 8. Linux 目标机上的 gcc 7.3.0 / aarch64 实机编译与 systemd 运行待移植阶段验证；

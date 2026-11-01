@@ -288,6 +288,12 @@ curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/logs?request_id=R1&errors_only=1&li
 
 # 指标
 curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/metrics?name=host.load1&limit=200"
+
+# 异常 / 拨测 / 仪表板 / 静默
+curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/issues?status=open"
+curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/probes"
+curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/dashboards"
+curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/silences"
 ```
 
 ### CLI

@@ -86,13 +86,15 @@ sudo install -m 0640 deploy/agent.json  /etc/vmon/agent.json
 |---|---|---|
 | `listen_host` / `listen_port` | HTTP 监听地址 | 仅内网；默认 `18428` |
 | `token` | API / Agent 访问令牌 | 必填，随机长串；所有节点一致 |
-| `state_dir` | 规则、证据包目录 | `/var/lib/vmon-server` |
+| `state_dir` | 规则、SLO、静默、Issue、仪表板/快照、证据包目录 | `/var/lib/vmon-server` |
 | `max_traces` | 内存中保留的 trace 数 | 默认 20000 |
 | `max_log_records` | 内存日志条数上限 | 默认 200000 |
 | `retention_seconds` | 内存数据保留窗口 | 默认 6 小时 |
 | `info_sample_permyriad` | INFO 日志采样率（万分之一） | `10000` 全采；降噪时调小 |
 | `dedup_window_ms` / `dedup_max_per_window` | 同指纹去重窗口与上限 | 默认 30 秒 / 50 条 |
 | `noise_patterns` | 已知无害日志模板关键字 | 按现场补充，只计数不存储 |
+| `pipeline` | 入库前脱敏规则 | `{"enabled":true,"use_defaults":true}` |
+| `webhook` | 告警事件 Webhook | `{"enabled":true,"url":"http://.../vmon/events"}` |
 | `vm_url` / `vl_url` / `forward_enabled` | 可选转发 VictoriaMetrics/Logs | 不部署 VM/VL 时保持 `false` |
 | `enable_evidence` | 证据包导出（内部版） | 对外发行版设为 `false` |
 | `enable_mcp` | MCP 接口 | 仅内部使用；对外发行版设为 `false` |
@@ -132,6 +134,13 @@ curl -s http://127.0.0.1:18428/api/health
 | `wal_max_bytes` | WAL 总容量 | 默认 64 MiB；超限先删最旧段 |
 | `process_filters` | 进程命令行子串，可多个 | 只匹配业务进程，避免采集噪声 |
 | `log_files` | 文件日志列表 | 每项 `path` + `service`；当前仅支持具体文件，不支持 glob |
+
+可用性拨测通过命令行重复 `--probe` 配置（不写入 agent.json）：
+
+```bash
+vmon_agent ... --probe \
+  "order-api=http://127.0.0.1:9000/health;interval_ms=30000;timeout_ms=3000;status=200"
+```
 
 部署：
 
@@ -298,7 +307,7 @@ MCP 只暴露只读查询与证据包生成；对外发行版应设置 `"enable_
 
 ## 10. 升级与回滚
 
-1. 备份 `/etc/vmon/*.json` 与 `/var/lib/vmon-server/rules.json`；
+1. 备份 `/etc/vmon/*.json` 与 `/var/lib/vmon-server/{rules,slos,silences,issues,dashboards}.json`；
 2. 停止 `vmon-agent` 可避免升级期间产生半截数据；中心服务可先升级；
 3. 替换 `/opt/vmon/bin` 下二进制与 `/opt/vmon/web`；
 4. `systemctl restart vmon-server vmon-agent`；

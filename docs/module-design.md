@@ -468,7 +468,7 @@ GET /api/traces/{id}
 |---|---|---|
 | 新采集器（GPU、JVM、fd） | `agent/src/` | 定时采集 → `wal.append(to_json(event))` |
 | 新规则类型 | `server/src/rules.*` | 在 `on_event` 分支增加判定 |
-| 新通知渠道 | `server/src/` | 消费事件中心，新增 `Notifier`（当前未实现） |
+| 新通知渠道 | `server/src/notifier.*` | Webhook 已实现；邮件/syslog 可复用 Notifier 队列 |
 | 新存储后端 | `server/src/forwarder.*` | 增加转发目标，或替换 Store |
 | 新 RPC 协议 | `adapters/` | 实现注入/提取，复用 SpanContext |
 | 新分析视图 | `server/src/trace_builder.*` / `web/app.js` | 新增只读接口 + 视图 |
@@ -482,8 +482,10 @@ GET /api/traces/{id}
 | SDK 环/上下文/Span/传播 | `tests/ring_buffer_test.cpp`、`span_test.cpp`、`propagation_test.cpp` |
 | Server 存储/链路/聚类/规则/SLO/API | `server/tests/*` |
 | Pipeline 脱敏 / Webhook | `server/tests/pipeline_test.cpp`、`notifier_test.cpp` |
+| Issue / 静默 / 仪表板 | `issues_test.cpp`、`silence_test.cpp`、`dashboard_test.cpp` |
+| HTTP 拨测 | `agent/tests/probe_test.cpp` |
 | Agent WAL/接入/扫描/命令/崩溃 | `agent/tests/*` |
-| 端到端 | `tests/e2e/run_e2e.py`（17 类场景） |
+| 端到端 | `tests/e2e/run_e2e.py`（21 类场景） |
 | Python 客户端 | `clients/python/test_vmon_trace.py` |
 | Web 客户端 | `clients/web/test_vmon_trace.js` |
 | UI | Playwright MCP 回归（见 `ui-test-report.md`） |
@@ -504,6 +506,7 @@ GET /api/traces/{id}
 > [客户端时序](diagrams/seq-client.svg) ·
 > [诊断/证据包时序](diagrams/seq-diagnose.svg) ·
 > [事件 Webhook 时序](diagrams/seq-webhook.svg) ·
+> [拨测/异常/静默时序](diagrams/seq-ops.svg) ·
 > [框架总图](diagrams/principle-overall.svg) ·
 > [关联键](diagrams/principle-keys.svg) ·
 > [链路还原](diagrams/principle-trace.svg) ·
@@ -638,6 +641,11 @@ classDiagram
     +start()
     +scan_once() size_t
   }
+  class ProbeRunner {
+    +start()
+    +stop()
+    +check(probe, now) vector
+  }
 
   IngestServer --> Wal : 每行 append
   Uploader --> Wal : 读封存段
@@ -645,6 +653,7 @@ classDiagram
   ProcessScanner --> Wal : process/host 事件
   LogTailer --> Wal : 文件日志
   CrashCollector --> Uploader : 崩溃上报
+  ProbeRunner --> Wal : probe.up/duration/status
 ```
 
 ### 11.3 Server 数据模型类图
@@ -738,6 +747,23 @@ classDiagram
     +sent() uint64
     +failed() uint64
   }
+  class IssueStore {
+    +list(Store, CrashStore, IssueQuery) vector
+    +update(id, status, assignee, note)
+    +load(path)
+    +save(path)
+  }
+  class SilenceStore {
+    +matches(rule, type, service, node, severity, now) bool
+    +upsert_json(json, now)
+    +remove(id)
+  }
+  class DashboardStore {
+    +list() vector
+    +upsert_json(json, now)
+    +data(dashboard, Store, now)
+    +create_snapshot(id, Store, now)
+  }
 
   Store *-- TraceData
   TraceData *-- SpanData
@@ -750,6 +776,10 @@ classDiagram
   CrashStore --> Store : 崩溃事件
   Store --> Pipeline : 入库前脱敏
   Store --> Notifier : 事件 sink
+  IssueStore --> Store : 错误聚类
+  IssueStore --> CrashStore : 崩溃指纹
+  RuleEngine --> SilenceStore : 静默匹配
+  DashboardStore --> Store : 只读查询
 ```
 
 ### 11.4 一次事件上报与查询（时序）
@@ -893,6 +923,34 @@ sequenceDiagram
   end
 ```
 
+### 11.10 拨测、异常与静默（时序）
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant AG as Agent ProbeRunner
+  participant T as HTTP 目标
+  participant SV as Server Store
+  participant R as RuleEngine
+  participant I as IssueStore
+  participant U as Web/CLI
+
+  AG->>T: GET /health
+  T-->>AG: 200 / timeout
+  AG->>SV: probe.up / duration / status（经 WAL）
+  AG->>SV: 失败时 error log
+  SV->>SV: 日志聚类 -> 模板/指纹
+  R->>R: 规则评估（先查静默）
+  alt 命中静默
+    R-->>R: 不产生事件
+  else 未静默
+    R->>SV: add_event（同指纹窗口内分组）
+  end
+  U->>I: GET /api/issues
+  I->>SV: 错误聚类 + 崩溃 + 持久化状态
+  U->>I: POST /api/issues/{id}（ack/指派/resolve）
+```
+
 ## 12. 框架原理图
 
 ### 12.1 总原理：所有信号收敛成一条事件流
@@ -1001,7 +1059,7 @@ flowchart TD
 
 1. 中心 Store 为内存有界存储，重启清空；长期存储通过 forwarder 接 VM/VL 或后续 Parquet。
 2. gRPC 只提供传播层，client/server interceptor 需按目标工程版本接入；streaming/异步未覆盖。
-3. Socket 只有 24 字节头编解码，具体协议接入由业务方完成；eBPF 弱边未实现。
+3. Socket 只有 24 字节头编解码，具体协议接入由业务方完成；eBPF 弱边提供接口与编译开关，collector 需 Linux/libbpf 实现。
 4. 剖析只做折叠栈导入与聚合，不做常驻 `SIGPROF`/perf。
 5. 邮件/syslog 通知、BFF 聚合接口、OTLP 接入未实现；Webhook 已支持。
 6. Linux aarch64/gcc 7.3 需在目标机实机验证；macOS 为开发验证环境。

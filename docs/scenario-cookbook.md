@@ -145,7 +145,34 @@ python3 examples/scenarios/demo.py --scenario crash --keep
 - 崩溃页出现 `e2e-crash` / `SIGSEGV`；
 - 详情能看到信号、pid、node、原因；有 debuginfo 时可符号化。
 
-## 7. 全部场景
+## 7. 异常、静默、拨测与仪表板
+
+这些能力不依赖额外 demo 参数，可直接在 `--keep` 栈上验证：
+
+```bash
+# 异常：错误日志聚合为 Issue
+curl -s -H "X-Vmon-Token: demo-token" \
+  "http://127.0.0.1:<port>/api/issues?limit=10"
+
+# 静默：发布窗口内抑制规则事件
+curl -s -H "X-Vmon-Token: demo-token" -H 'Content-Type: application/json' \
+  -d '{"name":"发布窗口","service":"demo-python","duration_minutes":30}' \
+  "http://127.0.0.1:<port>/api/silences"
+
+# 拨测：Agent 启动时增加 --probe，然后看总览/指标
+vmon_agent ... --probe \
+  'demo-api=http://127.0.0.1:19090/health;interval_ms=5000'
+
+# 仪表板：创建设置后打开 Web →「仪表板」，可生成只读快照
+curl -s -H "X-Vmon-Token: demo-token" -H 'Content-Type: application/json' \
+  -d '{"id":"dash-1","name":"值班看板","widgets":[
+       {"type":"metric","title":"负载","metric":"host.load1"},
+       {"type":"traces","title":"链路"},
+       {"type":"logs","title":"错误模板","limit":5}]}' \
+  "http://127.0.0.1:<port>/api/dashboards"
+```
+
+## 8. 全部场景
 
 ```bash
 python3 examples/scenarios/demo.py --scenario all --keep
@@ -153,7 +180,7 @@ python3 examples/scenarios/demo.py --scenario all --keep
 
 适合演示或验收：一条命令依次跑完，最后保留栈，按打印的 Web 地址逐页看。
 
-## 8. 手工造数据（不用 demo 脚本）
+## 9. 手工造数据（不用 demo 脚本）
 
 ```bash
 # 启动栈
