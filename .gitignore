@@ -7,7 +7,6 @@ cmake-build-*/
 
 # 三方下载、解压与二进制（由 scripts/download-third-party.sh 获取）
 /third_party/downloads/
-/third_party/src/
 /third_party/bin/
 
 # 发布包（由 scripts/package.sh 生成，不进入 git）
