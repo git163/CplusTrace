@@ -193,6 +193,9 @@ WAL/组件日志路径。
 ```bash
 python3 examples/scenarios/demo.py --scenario rpc --keep
 python3 examples/scenarios/demo.py --scenario all --keep
+
+# 三个真实进程的跨进程链路 + SVG 树图
+python3 examples/multiprocess/run_demo.py
 ```
 
 每个场景的观察顺序与产出见 [docs/scenario-cookbook.md](docs/scenario-cookbook.md)。

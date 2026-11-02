@@ -11,6 +11,7 @@
 | `hello/` | 最小业务接入：多阶段 Span、日志、错误码、两个请求对比 | `examples/hello/run_demo.sh` |
 | `http_backend/` | 接收 Python/Web 调用的 C++ HTTP 后端，续接 traceparent | `./build/examples/http_backend/vmon_http_backend` |
 | `scenarios/` | 常用场景一键演示：RPC、慢调用、错误、日志风暴、SLO、崩溃 | `examples/scenarios/demo.py` |
+| `multiprocess/` | 三个真实进程 Gateway→Order→Inventory，还原并绘制 Span 树 | `examples/multiprocess/run_demo.py` |
 
 ## 2. 三分钟跑通
 

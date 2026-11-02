@@ -168,6 +168,7 @@ add_subdirectory(tools)
 if(VMON_BUILD_EXAMPLES)
   add_subdirectory(examples/hello)
   add_subdirectory(examples/http_backend)
+  add_subdirectory(examples/multiprocess)
 endif()
 
 # ---------------------------------------------------------------- 测试
