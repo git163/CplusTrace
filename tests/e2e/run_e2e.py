@@ -509,6 +509,12 @@ def verify_trace_and_logs(harness, request_id):
         raise E2EFailure("trace 没有根节点")
     if not detail.get("critical_path"):
         raise E2EFailure("trace 没有关键路径")
+    if not detail.get("error_chain", {}).get("errors"):
+        raise E2EFailure("trace 没有错误传播链")
+    if not detail.get("threads", {}).get("threads"):
+        raise E2EFailure("trace 没有线程时间线")
+    if "context" not in detail:
+        raise E2EFailure("trace 没有进程/节点上下文")
     if not find_service_in_trace(detail, "e2e-client"):
         raise E2EFailure("trace 中缺少 e2e-client 服务的 Span")
 
@@ -907,6 +913,32 @@ def verify_dashboards(harness):
     if status != 404:
         raise E2EFailure("删除仪表板后应返回 404，实际 %s" % status)
     log("PASS 仪表板: 3 个 widget、指标数据、快照与删除")
+
+
+def verify_error_codes(harness):
+    """错误码跨链路聚合：同一错误码的 trace/服务/传播路径。"""
+    def ready():
+        data = harness.api.ok("GET", "/api/error-codes?limit=100")
+        codes = data.get("error_codes", [])
+        return data if any(item.get("code") == "E_ECHO" for item in codes) else None
+
+    data = wait_for(ready, 25, "错误码聚合包含 E_ECHO")
+    item = [c for c in data["error_codes"] if c["code"] == "E_ECHO"][0]
+    if item.get("trace_count", 0) < 1:
+        raise E2EFailure("E_ECHO 缺少调用链: %r" % item)
+    if "http-backend" not in item.get("services", []):
+        raise E2EFailure("E_ECHO 缺少后端服务: %r" % item)
+    path = item.get("sample_path") or []
+    if len(path) < 2 or path[-1].get("error_code") != "E_ECHO":
+        raise E2EFailure("错误传播路径不正确: %r" % path)
+
+    traces = harness.api.ok(
+        "GET", "/api/traces?error_code=E_ECHO&limit=10")
+    if not traces.get("traces"):
+        raise E2EFailure("按 error_code=E_ECHO 查不到 trace")
+    log("PASS 错误码定位: E_ECHO 跨 %d 条链路，路径 %s" % (
+        item["trace_count"],
+        " → ".join(p.get("service", "") for p in path)))
 
 
 def verify_events_lifecycle(harness):
@@ -1379,6 +1411,7 @@ def main():
         verify_mcp(harness, request_id)
         verify_cross_process(harness)
         verify_python_rpc(harness)
+        verify_error_codes(harness)
         verify_events_lifecycle(harness)
         verify_issues(harness)
         verify_silences(harness)

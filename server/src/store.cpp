@@ -417,6 +417,16 @@ std::vector<TraceSummary> Store::query_traces(const TraceQuery& query) const {
       }
       if (!found) continue;
     }
+    if (!query.error_code.empty()) {
+      bool found = false;
+      for (const auto& kv : trace.spans) {
+        if (kv.second.error_code == query.error_code) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) continue;
+    }
     if (!query.text.empty()) {
       const std::string needle = lower_ascii(query.text);
       bool found = contains_ci(trace.trace_id, needle) ||
@@ -427,7 +437,8 @@ std::vector<TraceSummary> Store::query_traces(const TraceQuery& query) const {
       for (auto it = trace.spans.begin(); !found && it != trace.spans.end();
            ++it) {
         found = contains_ci(it->second.service, needle) ||
-                contains_ci(it->second.name, needle);
+                contains_ci(it->second.name, needle) ||
+                contains_ci(it->second.error_code, needle);
       }
       if (!found) continue;
     }

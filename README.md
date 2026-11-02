@@ -61,6 +61,8 @@ C++ 系统（10–50 节点、50–200 进程），把「人工翻多机多进�
 
 - Agent 主机指标（`host.load1/5/15`、内存、进程数、uptime）与可选的进程 RSS；
 - 服务性能分析：服务页展示近 5 分钟 QPS、错误率、P95；
+- 错误码横向定位：同一错误码跨链路/服务聚合与传播路径；
+- 立体视图：错误传播链、线程时间线、进程/节点/系统上下文；诊断返回恢复建议；
 - SLO（可用性/延迟、错误预算、燃烧率）及持久化；
 - 事件生命周期（open → ack → resolved）与多维筛选；
 - 服务拓扑、Trace 瀑布图、日志时间窗/node/task_id 过滤；
@@ -73,7 +75,7 @@ C++ 系统（10–50 节点、50–200 进程），把「人工翻多机多进�
 - 仪表板与只读快照（指标/链路/日志 widget）；
 - 可选 CPU SIGPROF 采样（编译选项 `VMON_ENABLE_CPU_PROFILER`）；SVG 条形火焰图（点击放大）；
 - 常用场景 demo（RPC/慢调用/错误/日志风暴/SLO/崩溃）与快速诊断手册；
-- Web UI 16 个视图完成真实浏览器回归。
+- Web UI 17 个视图完成真实浏览器回归。
 
 > 结论：当前版本可作为「可运行、可验证的 M1–M6 纵切」：端到端链路、日志治理、
 > 链路还原、崩溃、剖析数据面、告警、证据包与 MCP 都已打通；上表「暂未覆盖」项
@@ -124,12 +126,12 @@ ctest --test-dir build --output-on-failure
 | `vmon_web_client` | 浏览器 traceparent、fetch 注入、采样与上报回调 |
 | `vmon_e2e` | 真实 Server + Agent + SDK 业务进程 + HTTP 后端的端到端链路 |
 
-`vmon_e2e` 覆盖 21 类场景：HTTP 表面与鉴权、trace/日志多维查询（含统一搜索 `q`）、
+`vmon_e2e` 覆盖 22 类场景：HTTP 表面与鉴权、trace/日志多维查询（含统一搜索 `q`）、
 动态日志级别真正生效、MCP 工具与错误码、跨进程父子 Span 与拓扑边、Python 客户端
 调用 C++ 后端（同一 trace / 错误码）、事件生命周期、异常追踪 Issue、告警静默、
 HTTP 可用性拨测、仪表板与快照、剖析、诊断/巡检、指标（主机 + 进程标签回归）、
-证据包脱敏与校验和、SLO、规则/SLO 重启持久化、SIGSEGV 捕获上传、中心停止期间
-WAL 缓存与恢复补传。
+证据包脱敏与校验和、SLO、规则/SLO 重启持久化、错误码跨链路聚合、SIGSEGV 捕获上传、
+中心停止期间 WAL 缓存与恢复补传。
 未找到 Python3 时该测试自动跳过。
 
 生成源码发布包（约 400KB，不含三方依赖）：
@@ -285,7 +287,8 @@ client.close()
 | `GET /api/overview` | 总览指标、慢 trace、错误 Top |
 | `GET /api/requests/{request_id}` | 请求级：trace + 日志 + 聚类 |
 | `GET /api/traces/{trace_id}` | trace 树、关键路径、首个错误、关联日志 |
-| `GET /api/traces?q=` | 统一搜索（trace_id / request_id / task_id / 服务 / Span） |
+| `GET /api/traces?q=` | 统一搜索（trace_id / request_id / task_id / 服务 / Span / 错误码） |
+| `GET /api/error-codes` | 同一错误码跨链路/服务聚合与传播路径 |
 | `GET /api/logs` / `GET /api/logs/clusters` | 日志检索（含 node/task_id/时间窗）/ 模板聚类 |
 | `GET /api/metrics?name=` | 指标序列查询 |
 | `GET /api/topology` | 服务拓扑与强弱边 |
@@ -299,6 +302,7 @@ client.close()
 | `GET /api/crashes` / `POST /api/crashes/symbolize` | 崩溃列表 / 离线符号化 |
 | `GET /api/profiles` | 剖析记录与火焰图 |
 | `POST /api/control/log-level` | 动态日志级别（带 TTL） |
+| `POST /api/control/dump-stacks` | 抓取指定进程全线程栈（只读） |
 | `POST /api/diagnose` / `GET /api/inspection` | 一键诊断 / 巡检 |
 | `GET/POST/DELETE /api/rules` | 告警规则 |
 | `POST /api/evidence` | 生成脱敏证据包 |

@@ -235,5 +235,164 @@ std::vector<ServiceEdge> build_topology(const std::vector<TraceData>& traces) {
   return out;
 }
 
+nlohmann::json error_chain(const TraceData& trace) {
+  std::vector<const SpanData*> errors;
+  for (const auto& kv : trace.spans) {
+    if (kv.second.is_error()) errors.push_back(&kv.second);
+  }
+  std::sort(errors.begin(), errors.end(),
+            [](const SpanData* a, const SpanData* b) {
+              return a->start_ns < b->start_ns;
+            });
+
+  const uint64_t origin = trace.first_ns;
+  nlohmann::json list = nlohmann::json::array();
+  nlohmann::json first_path = nlohmann::json::array();
+  for (const SpanData* span : errors) {
+    std::vector<const SpanData*> path;
+    const SpanData* current = span;
+    std::set<std::string> visited;
+    while (current != nullptr && !current->span.empty() &&
+           visited.insert(current->span).second) {
+      path.push_back(current);
+      if (current->parent.empty()) break;
+      auto it = trace.spans.find(current->parent);
+      current = it == trace.spans.end() ? nullptr : &it->second;
+    }
+    std::reverse(path.begin(), path.end());
+    nlohmann::json path_json = nlohmann::json::array();
+    for (const SpanData* node : path) {
+      path_json.push_back(
+          {{"service", node->service},
+           {"name", node->name},
+           {"error_code", node->error_code},
+           {"tid", node->tid},
+           {"offset_ms",
+            static_cast<double>(node->start_ns > origin ? node->start_ns - origin
+                                                        : 0) /
+                1000000.0},
+           {"duration_ms", static_cast<double>(node->duration_ns()) / 1000000.0}});
+    }
+    if (first_path.empty()) first_path = path_json;
+    list.push_back(
+        {{"span_id", span->span},
+         {"parent_span_id", span->parent},
+         {"service", span->service},
+         {"instance", span->instance},
+         {"node", span->node},
+         {"name", span->name},
+         {"error_code", span->error_code},
+         {"status", span->status},
+         {"tid", span->tid},
+         {"offset_ms",
+          static_cast<double>(span->start_ns > origin ? span->start_ns - origin : 0) /
+              1000000.0},
+         {"duration_ms", static_cast<double>(span->duration_ns()) / 1000000.0},
+         {"path", path_json}});
+  }
+  return {{"count", list.size()}, {"errors", list}, {"first_path", first_path}};
+}
+
+nlohmann::json thread_timeline(const TraceData& trace) {
+  struct ThreadAgg {
+    std::string service;
+    std::string instance;
+    std::string node;
+    int32_t tid = 0;
+    std::vector<const SpanData*> spans;
+  };
+
+  uint64_t origin = trace.first_ns;
+  if (origin == 0) {
+    for (const auto& kv : trace.spans) {
+      if (origin == 0 || kv.second.start_ns < origin) origin = kv.second.start_ns;
+    }
+  }
+
+  std::map<std::string, ThreadAgg> threads;
+  for (const auto& kv : trace.spans) {
+    const SpanData& span = kv.second;
+    const std::string key = span.service + "\x1f" + span.instance + "\x1f" +
+                            span.node + "\x1f" + std::to_string(span.tid);
+    ThreadAgg& agg = threads[key];
+    agg.service = span.service;
+    agg.instance = span.instance;
+    agg.node = span.node;
+    agg.tid = span.tid;
+    agg.spans.push_back(&span);
+  }
+
+  const uint64_t gap_threshold_ns = 100ull * 1000000ull;  // 100ms
+  nlohmann::json out = nlohmann::json::array();
+  size_t long_gaps = 0;
+  for (auto& kv : threads) {
+    ThreadAgg& agg = kv.second;
+    std::sort(agg.spans.begin(), agg.spans.end(),
+              [](const SpanData* a, const SpanData* b) {
+                return a->start_ns < b->start_ns;
+              });
+    nlohmann::json spans = nlohmann::json::array();
+    nlohmann::json gaps = nlohmann::json::array();
+    uint64_t busy_ns = 0;
+    uint64_t prev_end = origin;
+    const SpanData* prev_span = nullptr;
+    uint64_t first_start = agg.spans.empty() ? origin : agg.spans.front()->start_ns;
+    uint64_t last_end = first_start;
+    size_t error_count = 0;
+    for (const SpanData* span : agg.spans) {
+      const uint64_t end = span->end_ns == 0 ? span->start_ns : span->end_ns;
+      if (span->start_ns > prev_end + gap_threshold_ns) {
+        ++long_gaps;
+        gaps.push_back(
+            {{"gap_ms",
+              static_cast<double>(span->start_ns - prev_end) / 1000000.0},
+             {"after", prev_span ? prev_span->name : std::string()},
+             {"before", span->name},
+             {"at_ms", static_cast<double>(prev_end > origin ? prev_end - origin : 0) /
+                           1000000.0}});
+      }
+      busy_ns += span->duration_ns();
+      if (span->is_error()) ++error_count;
+      if (end > last_end) last_end = end;
+      if (end > prev_end) prev_end = end;
+      prev_span = span;
+      spans.push_back(
+          {{"span_id", span->span},
+           {"parent_span_id", span->parent},
+           {"name", span->name},
+           {"error_code", span->error_code},
+           {"status", span->status},
+           {"offset_ms",
+            static_cast<double>(span->start_ns > origin ? span->start_ns - origin : 0) /
+                1000000.0},
+           {"duration_ms", static_cast<double>(span->duration_ns()) / 1000000.0}});
+    }
+    out.push_back(
+        {{"service", agg.service},
+         {"instance", agg.instance},
+         {"node", agg.node},
+         {"tid", agg.tid},
+         {"label", agg.service + " / tid " + std::to_string(agg.tid)},
+         {"span_count", agg.spans.size()},
+         {"error_count", error_count},
+         {"start_ms",
+          static_cast<double>(first_start > origin ? first_start - origin : 0) /
+              1000000.0},
+         {"wall_ms", static_cast<double>(last_end > first_start
+                                             ? last_end - first_start
+                                             : 0) /
+                         1000000.0},
+         {"busy_ms", static_cast<double>(busy_ns) / 1000000.0},
+         {"gaps", gaps},
+         {"spans", spans}});
+  }
+
+  return {{"thread_count", out.size()},
+          {"multi_threaded", out.size() > 1},
+          {"long_gaps", long_gaps},
+          {"gap_threshold_ms", 100},
+          {"threads", out}};
+}
+
 }  // namespace server
 }  // namespace vmon

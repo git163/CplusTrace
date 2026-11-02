@@ -1,5 +1,6 @@
 #include "serialize.h"
 
+#include "trace_builder.h"
 #include "util.h"
 
 namespace vmon {
@@ -75,6 +76,8 @@ nlohmann::json analysis_to_json(const TraceData& trace,
     critical.push_back(span_to_json(span));
   }
   j["critical_path"] = critical;
+  j["error_chain"] = error_chain(trace);
+  j["threads"] = thread_timeline(trace);
   if (analysis.has_error) j["first_error"] = span_to_json(analysis.first_error);
   if (!analysis.slowest_span.span.empty()) {
     j["slowest_span"] = span_to_json(analysis.slowest_span);

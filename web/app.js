@@ -288,6 +288,8 @@
     // 统一搜索：trace_id / request_id / task_id / 服务名都交给服务端做子串匹配。
     if (query) params.set("q", query);
     if (filter === "error") params.set("error", "1");
+    const errorCode = $("trace-error-code").value.trim();
+    if (errorCode) params.set("error_code", errorCode);
     if (minMs > 0) params.set("min_duration_ns", String(Math.floor(minMs * 1e6)));
     const data = await api("/api/traces?" + params.toString());
     $("trace-list").innerHTML =
@@ -302,6 +304,9 @@
     const logs = detail.logs || [];
     const roots = detail.roots || [];
     const critical = detail.critical_path || [];
+    const errorChain = detail.error_chain || {};
+    const threadInfo = detail.threads || {};
+    const context = detail.context || {};
 
     const summaryCards = cards([
       { label: "耗时", value: ms(summary.duration_ns) },
@@ -335,8 +340,49 @@
           (detail.first_error.line ? ":" + detail.first_error.line : "") +
           "</p></div>"
         : "") +
+      ((errorChain.errors || []).length
+        ? '<div class="panel" style="border-color:#663333"><h3>错误传播链 (' +
+          errorChain.errors.length +
+          ")</h3>" +
+          '<p class="muted">从根到首个错误的路径：' +
+          (errorChain.first_path || [])
+            .map((p) => esc(p.service + "/" + p.name))
+            .join(" → ") +
+          "</p>" +
+          '<table><thead><tr><th>偏移</th><th>服务 / Span</th><th>错误码</th><th>线程</th><th>耗时</th></tr></thead><tbody>' +
+          errorChain.errors
+            .map(
+              (item) =>
+                '<tr><td class="mono">' +
+                esc(Number(item.offset_ms || 0).toFixed(1)) +
+                " ms</td><td>" +
+                esc(item.service + " / " + item.name) +
+                '</td><td class="error-text mono">' +
+                esc(item.error_code || item.status || "") +
+                '</td><td class="mono">' +
+                esc(item.tid) +
+                "</td><td>" +
+                esc(Number(item.duration_ms || 0).toFixed(1)) +
+                " ms</td></tr>"
+            )
+            .join("") +
+          "</tbody></table></div>"
+        : "") +
       '<div class="panel"><h3>Span 树</h3>' +
       renderTree(roots) +
+      "</div>" +
+      '<div class="panel"><h3>线程视图' +
+      (threadInfo.multi_threaded
+        ? ' <span class="badge">多线程 · ' + esc(threadInfo.thread_count) + "</span>"
+        : "") +
+      (threadInfo.long_gaps
+        ? ' <span class="error-text">长空档 ' + esc(threadInfo.long_gaps) + "</span>"
+        : "") +
+      "</h3>" +
+      renderThreadLanes(threadInfo, summary) +
+      "</div>" +
+      '<div class="panel"><h3>进程 / 节点 / 系统</h3>' +
+      renderTraceContext(context) +
       "</div>" +
       '<div class="panel"><h3>时间瀑布图</h3>' +
       renderWaterfall(roots, summary.start_ns, summary.duration_ns) +
@@ -361,6 +407,186 @@
       ")</h3>" +
       renderLogLines(logs) +
       "</div>";
+  }
+
+  function renderThreadLanes(info, summary) {
+    const threads = info.threads || [];
+    if (!threads.length) return empty("没有线程数据");
+    const left = 190;
+    const width = 1000;
+    const laneHeight = 34;
+    const top = 20;
+    let totalMs = Number(summary.duration_ns || 0) / 1e6;
+    threads.forEach((thread) => {
+      (thread.spans || []).forEach((span) => {
+        totalMs = Math.max(
+          totalMs,
+          Number(span.offset_ms || 0) + Number(span.duration_ms || 0)
+        );
+      });
+    });
+    totalMs = Math.max(1, totalMs);
+    const laneWidth = width - left - 12;
+    const height = top + threads.length * laneHeight + 12;
+    let svg =
+      '<svg class="thread-svg" viewBox="0 0 ' +
+      width +
+      " " +
+      height +
+      '" role="img" aria-label="线程时间线">';
+    svg +=
+      '<text x="' +
+      left +
+      '" y="12" class="thread-axis">0 ms → ' +
+      totalMs.toFixed(0) +
+      " ms</text>";
+    threads.forEach((thread, index) => {
+      const y = top + index * laneHeight;
+      svg +=
+        '<text x="0" y="' +
+        (y + 16) +
+        '" class="thread-label">' +
+        esc(String(thread.label || thread.service || "thread").slice(0, 28)) +
+        "</text>";
+      (thread.gaps || []).forEach((gap) => {
+        const x = left + (Number(gap.at_ms || 0) / totalMs) * laneWidth;
+        const w = Math.max(2, (Number(gap.gap_ms || 0) / totalMs) * laneWidth);
+        svg +=
+          '<rect x="' +
+          x.toFixed(1) +
+          '" y="' +
+          (y + 7) +
+          '" width="' +
+          w.toFixed(1) +
+          '" height="18" rx="2" class="thread-gap"><title>空档 ' +
+          esc(Number(gap.gap_ms || 0).toFixed(1)) +
+          " ms · " +
+          esc(gap.after || "") +
+          " → " +
+          esc(gap.before || "") +
+          "</title></rect>";
+      });
+      (thread.spans || []).forEach((span) => {
+        const x = left + (Number(span.offset_ms || 0) / totalMs) * laneWidth;
+        const w = Math.max(
+          2,
+          (Number(span.duration_ms || 0) / totalMs) * laneWidth
+        );
+        const bad = span.status === "error" || span.error_code;
+        svg +=
+          '<rect x="' +
+          x.toFixed(1) +
+          '" y="' +
+          (y + 7) +
+          '" width="' +
+          w.toFixed(1) +
+          '" height="18" rx="2" class="thread-span' +
+          (bad ? " bad" : "") +
+          '"><title>' +
+          esc(span.name || "") +
+          " · " +
+          esc(Number(span.duration_ms || 0).toFixed(1)) +
+          " ms" +
+          (span.error_code ? " · " + esc(span.error_code) : "") +
+          "</title></rect>";
+      });
+    });
+    svg += "</svg>";
+    return (
+      '<p class="muted">每一行是一个线程（服务 / tid）；橙色为空档，红色为错误 Span。' +
+      (info.long_gaps
+        ? " 检测到 " + esc(info.long_gaps) + " 处长空档（>100ms）。"
+        : "") +
+      "</p>" +
+      svg
+    );
+  }
+
+  function renderTraceContext(context) {
+    const processes = context.processes || [];
+    const nodes = context.nodes || [];
+    const metrics = context.metrics || [];
+    if (!processes.length && !nodes.length && !metrics.length) {
+      return empty("暂无进程/节点上下文（可能只有 Python 等无 pid 的客户端 Span）");
+    }
+    let html = "";
+    if (processes.length) {
+      html +=
+        '<h4>进程</h4><table><thead><tr><th>节点</th><th>pid</th><th>进程</th><th>状态</th><th>RSS</th><th>线程</th><th>命令行</th></tr></thead><tbody>' +
+        processes
+          .map(
+            (p) =>
+              "<tr><td>" +
+              esc(p.node) +
+              '</td><td class="mono">' +
+              esc(p.pid) +
+              "</td><td>" +
+              esc(p.name) +
+              "</td><td>" +
+              esc(p.state) +
+              "</td><td>" +
+              esc(Math.round(Number(p.rss_kb || 0) / 1024)) +
+              " MB</td><td>" +
+              esc(p.threads) +
+              '</td><td class="mono truncate">' +
+              esc(p.cmdline) +
+              "</td></tr>"
+          )
+          .join("") +
+        "</tbody></table>";
+    }
+    if (nodes.length) {
+      html +=
+        '<h4>节点</h4><table><thead><tr><th>节点</th><th>系统</th><th>load1/5/15</th><th>内存</th></tr></thead><tbody>' +
+        nodes
+          .map(
+            (n) =>
+              "<tr><td>" +
+              esc(n.name) +
+              "</td><td>" +
+              esc(n.os + " " + n.kernel + " " + n.arch) +
+              '</td><td class="mono">' +
+              esc(
+                Number(n.load1 || 0).toFixed(2) +
+                  " / " +
+                  Number(n.load5 || 0).toFixed(2) +
+                  " / " +
+                  Number(n.load15 || 0).toFixed(2)
+              ) +
+              "</td><td>" +
+              esc(
+                (Number(n.mem_total_kb || 0) / 1024 / 1024).toFixed(1) +
+                  " GB 总 / " +
+                  (Number(n.mem_available_kb || 0) / 1024 / 1024).toFixed(1) +
+                  " GB 可用"
+              ) +
+              "</td></tr>"
+          )
+          .join("") +
+        "</tbody></table>";
+    }
+    if (metrics.length) {
+      html +=
+        '<h4>trace 时间窗内指标</h4><table><thead><tr><th>指标</th><th>点数</th><th>min</th><th>max</th><th>最新</th></tr></thead><tbody>' +
+        metrics
+          .map(
+            (m) =>
+              '<tr><td class="mono">' +
+              esc(m.name) +
+              "</td><td>" +
+              esc(m.count) +
+              "</td><td>" +
+              esc(Number(m.min || 0).toFixed(3)) +
+              "</td><td>" +
+              esc(Number(m.max || 0).toFixed(3)) +
+              "</td><td>" +
+              esc(Number(m.last || 0).toFixed(3)) +
+              "</td></tr>"
+          )
+          .join("") +
+        "</tbody></table>";
+    }
+    return html;
   }
 
   function renderTree(nodes) {
@@ -936,6 +1162,55 @@
     } catch (err) {
       toast(err.message);
     }
+  }
+
+  // ------------------------------------------------------------ 错误码定位
+  async function loadErrorCodes() {
+    const data = await api("/api/error-codes?limit=100");
+    const codes = data.error_codes || [];
+    $("error-codes-result").innerHTML = codes.length
+      ? '<table><thead><tr><th>错误码</th><th>调用链</th><th>Span</th><th>涉及服务</th><th>根服务</th><th>最近</th><th>示例传播路径</th><th></th></tr></thead><tbody>' +
+        codes
+          .map((c) => {
+            const path = (c.sample_path || [])
+              .map(
+                (p) =>
+                  esc(p.service + "/" + p.name) +
+                  (p.error_code ? " [" + esc(p.error_code) + "]" : "")
+              )
+              .join(" → ");
+            return (
+              '<tr><td><strong class="error-text mono">' +
+              esc(c.code) +
+              "</strong></td><td>" +
+              esc(c.trace_count) +
+              "</td><td>" +
+              esc(c.span_count) +
+              "</td><td>" +
+              esc((c.services || []).join(", ")) +
+              "</td><td>" +
+              esc((c.root_services || []).join(", ")) +
+              '</td><td class="mono">' +
+              esc(c.last || "") +
+              '</td><td class="truncate">' +
+              path +
+              "</td><td>" +
+              (c.sample_trace_id
+                ? '<button data-error-trace="' +
+                  esc(c.sample_trace_id) +
+                  '">查看 trace</button>'
+                : "") +
+              "</td></tr>"
+            );
+          })
+          .join("") +
+        "</tbody></table>"
+      : empty("近 1 小时没有错误码");
+    document.querySelectorAll("[data-error-trace]").forEach((button) => {
+      button.addEventListener("click", () =>
+        openTrace(button.getAttribute("data-error-trace"))
+      );
+    });
   }
 
   // ------------------------------------------------------------ 崩溃
@@ -1817,6 +2092,7 @@
       nodes: loadNodes,
       events: loadEvents,
       issues: loadIssues,
+      "error-codes": loadErrorCodes,
       crashes: loadCrashes,
       profiles: loadProfiles,
       metrics: loadMetrics,
@@ -1856,6 +2132,7 @@
     $("nodes-refresh").addEventListener("click", safeRun(loadNodes));
     $("events-refresh").addEventListener("click", safeRun(loadEvents));
     $("issues-refresh").addEventListener("click", safeRun(loadIssues));
+    $("error-codes-refresh").addEventListener("click", safeRun(loadErrorCodes));
     $("crashes-refresh").addEventListener("click", safeRun(loadCrashes));
     $("profiles-refresh").addEventListener("click", safeRun(loadProfiles));
     $("metrics-search").addEventListener("click", safeRun(loadMetrics));

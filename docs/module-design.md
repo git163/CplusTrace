@@ -340,7 +340,7 @@ Server 命令队列
 | HTTP API | `server/src/api.cpp` | 鉴权、查询、控制、证据包、MCP |
 | 存储 | `server/src/store.*` | 有界 trace/log/metric/event，索引与治理 |
 | 资产目录 | `server/src/catalog.*` | 节点 → 进程 → 服务实例，存活判断 |
-| 链路还原 | `server/src/trace_builder.*` | Span 树、关键路径、首个错误、拓扑边 |
+| 链路还原 | `server/src/trace_builder.*` | Span 树、关键路径、首个错误、错误传播链、线程时间线、拓扑边 |
 | 日志聚类 | `server/src/log_cluster.*` | 模板归一化、指纹、关键字段提取 |
 | 规则引擎 | `server/src/rules.*` | 心跳/错误日志/错误率/慢调用/指标 |
 | SLO | `server/src/slo.*` | 定义校验、持久化、SLI/预算/燃烧率 |
@@ -399,7 +399,7 @@ GET /api/traces/{id}
 | `tools/cli/` | `vmonctl` 子命令 |
 | `tools/mcp/` | stdio MCP 桥，只读工具 |
 | `tools/crash_helper/` | core_pattern helper |
-| `web/` | hash 路由 SPA，16 个视图 |
+| `web/` | hash 路由 SPA，17 个视图 |
 | `clients/python/` | Python Span、HTTP 包装、批量上报 |
 | `clients/web/` | 浏览器 traceparent 注入、fetch 包装 |
 | `examples/http_backend/` | 接收 Python/Web 调用并续接 trace 的 C++ 后端 |
@@ -434,7 +434,8 @@ GET /api/traces/{id}
 | `POST /v1/ingest` | Agent/Python → Server | NDJSON + token | 事件接入 |
 | `POST /v1/crash` | Agent → Server | JSON | 崩溃上报 |
 | `POST /v1/profile` | Agent → Server | 折叠栈 | 剖析上报 |
-| `GET /api/*` | Web/CLI/MCP → Server | JSON | 只读查询 |
+| `GET /api/*` | Web/CLI/MCP → Server | JSON | 只读查询（含 `/api/error-codes`） |
+| `POST /api/control/dump-stacks` | Web/CLI → Server → Agent → SDK | JSON | 只读全线程栈 |
 | `POST /mcp` / stdio | MCP 客户端 → Server | JSON-RPC | 内部只读工具 |
 
 ### 7.3 关联键
@@ -485,7 +486,7 @@ GET /api/traces/{id}
 | Issue / 静默 / 仪表板 | `issues_test.cpp`、`silence_test.cpp`、`dashboard_test.cpp` |
 | HTTP 拨测 | `agent/tests/probe_test.cpp` |
 | Agent WAL/接入/扫描/命令/崩溃 | `agent/tests/*` |
-| 端到端 | `tests/e2e/run_e2e.py`（21 类场景） |
+| 端到端 | `tests/e2e/run_e2e.py`（22 类场景） |
 | Python 客户端 | `clients/python/test_vmon_trace.py` |
 | Web 客户端 | `clients/web/test_vmon_trace.js` |
 | UI | Playwright MCP 回归（见 `ui-test-report.md`） |

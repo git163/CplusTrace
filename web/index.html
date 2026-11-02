@@ -19,6 +19,7 @@
       <button data-view="nodes">节点</button>
       <button data-view="events">事件</button>
       <button data-view="issues">异常</button>
+      <button data-view="error-codes">错误码</button>
       <button data-view="crashes">崩溃</button>
       <button data-view="profiles">剖析</button>
       <button data-view="metrics">指标</button>
@@ -77,6 +78,7 @@
           <option value="">最近 1 小时</option>
           <option value="error">仅错误</option>
         </select>
+        <input id="trace-error-code" placeholder="错误码，如 E_DB" style="width:150px" />
         <input id="trace-min-duration" type="number" placeholder="最小耗时 ms" style="width:130px" />
       </div>
       <div class="split">
@@ -201,6 +203,16 @@
         <button id="issues-refresh">刷新</button>
       </div>
       <div class="panel" id="issues-result"></div>
+    </section>
+
+    <!-- 错误码 -->
+    <section id="view-error-codes" class="view">
+      <div class="toolbar">
+        <h2>错误码定位</h2>
+        <span class="muted">近 1 小时 · 同一错误码跨服务聚合</span>
+        <button id="error-codes-refresh">刷新</button>
+      </div>
+      <div class="panel" id="error-codes-result"></div>
     </section>
 
     <!-- 崩溃 -->

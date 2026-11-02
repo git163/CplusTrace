@@ -233,6 +233,95 @@ nlohmann::json overview_json(ServerContext& ctx) {
   return out;
 }
 
+nlohmann::json error_codes_json(ServerContext& ctx, uint64_t since_ns,
+                                size_t limit) {
+  struct Group {
+    std::set<std::string> traces;
+    std::set<std::string> services;
+    std::set<std::string> root_services;
+    uint64_t spans = 0;
+    uint64_t first_ns = 0;
+    uint64_t last_ns = 0;
+    std::string sample_trace_id;
+    std::string sample_request_id;
+    nlohmann::json sample_path = nlohmann::json::array();
+  };
+
+  std::map<std::string, Group> groups;
+  for (const TraceData& trace : ctx.store.recent_traces(since_ns, 2000)) {
+    for (const auto& kv : trace.spans) {
+      const SpanData& span = kv.second;
+      if (span.error_code.empty()) continue;
+      Group& group = groups[span.error_code];
+      group.traces.insert(trace.trace_id);
+      group.services.insert(span.service);
+      ++group.spans;
+      if (group.first_ns == 0 || span.start_ns < group.first_ns) {
+        group.first_ns = span.start_ns;
+      }
+      if (span.end_ns > group.last_ns) group.last_ns = span.end_ns;
+      if (!trace.root_service.empty()) {
+        group.root_services.insert(trace.root_service);
+      }
+
+      if (group.sample_trace_id.empty()) {
+        group.sample_trace_id = trace.trace_id;
+        group.sample_request_id = trace.request_id;
+        // 从错误 Span 沿 parent 回溯到根，形成跨服务错误传播路径。
+        std::vector<const SpanData*> path;
+        const SpanData* current = &span;
+        std::set<std::string> visited;
+        while (current != nullptr && !current->span.empty() &&
+               visited.insert(current->span).second) {
+          path.push_back(current);
+          if (current->parent.empty()) break;
+          auto parent_it = trace.spans.find(current->parent);
+          current = parent_it == trace.spans.end() ? nullptr : &parent_it->second;
+        }
+        std::reverse(path.begin(), path.end());
+        for (const SpanData* node : path) {
+          group.sample_path.push_back(
+              {{"service", node->service},
+               {"name", node->name},
+               {"error_code", node->error_code},
+               {"duration_ms", static_cast<double>(node->duration_ns()) / 1000000.0}});
+        }
+      }
+    }
+  }
+
+  std::vector<std::pair<std::string, Group>> ordered(groups.begin(),
+                                                     groups.end());
+  std::sort(ordered.begin(), ordered.end(),
+            [](const std::pair<std::string, Group>& a,
+               const std::pair<std::string, Group>& b) {
+              return a.second.last_ns > b.second.last_ns;
+            });
+
+  nlohmann::json out = nlohmann::json::array();
+  for (const auto& item : ordered) {
+    if (out.size() >= limit) break;
+    const Group& group = item.second;
+    out.push_back(
+        {{"code", item.first},
+         {"trace_count", group.traces.size()},
+         {"span_count", group.spans},
+         {"services", std::vector<std::string>(group.services.begin(),
+                                               group.services.end())},
+         {"root_services",
+          std::vector<std::string>(group.root_services.begin(),
+                                   group.root_services.end())},
+         {"first_ns", group.first_ns},
+         {"first", iso_time(group.first_ns)},
+         {"last_ns", group.last_ns},
+         {"last", iso_time(group.last_ns)},
+         {"sample_trace_id", group.sample_trace_id},
+         {"sample_request_id", group.sample_request_id},
+         {"sample_path", group.sample_path}});
+  }
+  return out;
+}
+
 nlohmann::json services_json(ServerContext& ctx) {
   struct Aggregate {
     std::string service;
@@ -335,6 +424,101 @@ nlohmann::json processes_json(ServerContext& ctx, const std::string& node_filter
   return out;
 }
 
+
+nlohmann::json trace_context_json(ServerContext& ctx, const TraceData& trace) {
+  std::set<std::string> trace_nodes;
+  std::set<std::pair<std::string, int32_t>> trace_processes;
+  for (const auto& kv : trace.spans) {
+    const SpanData& span = kv.second;
+    if (!span.node.empty()) trace_nodes.insert(span.node);
+    if (span.pid != 0) trace_processes.insert({span.node, span.pid});
+  }
+
+  nlohmann::json nodes = nlohmann::json::array();
+  nlohmann::json processes = nlohmann::json::array();
+  for (const NodeRecord& node : ctx.store.catalog().nodes()) {
+    if (!trace_nodes.count(node.name)) continue;
+    nodes.push_back({{"name", node.name},
+                     {"os", node.os},
+                     {"kernel", node.kernel},
+                     {"arch", node.arch},
+                     {"load1", node.load1},
+                     {"load5", node.load5},
+                     {"load15", node.load15},
+                     {"mem_total_kb", node.mem_total_kb},
+                     {"mem_available_kb", node.mem_available_kb},
+                     {"uptime_seconds", node.uptime_seconds},
+                     {"last_seen_ns", node.last_seen_ns},
+                     {"last_seen", iso_time(node.last_seen_ns)}});
+    for (const auto& proc : node.processes) {
+      if (!trace_processes.count({node.name, proc.second.pid})) continue;
+      processes.push_back({{"node", node.name},
+                           {"pid", proc.second.pid},
+                           {"ppid", proc.second.ppid},
+                           {"name", proc.second.name},
+                           {"cmdline", proc.second.cmdline},
+                           {"state", proc.second.state},
+                           {"rss_kb", proc.second.rss_kb},
+                           {"threads", proc.second.threads},
+                           {"alive", proc.second.alive},
+                           {"last_seen_ns", proc.second.last_seen_ns},
+                           {"last_seen", iso_time(proc.second.last_seen_ns)}});
+    }
+  }
+
+  const uint64_t window = 60000000000ull;
+  const uint64_t since = trace.first_ns > window ? trace.first_ns - window : 0;
+  const uint64_t until = trace.last_ns + window;
+  nlohmann::json metrics = nlohmann::json::array();
+  auto summarize = [&](const std::string& name,
+                       const std::function<bool(const MetricPoint&)>& match) {
+    double min = 0.0;
+    double max = 0.0;
+    double last = 0.0;
+    size_t count = 0;
+    for (const MetricPoint& point : ctx.store.query_metrics(name, since, 1000)) {
+      if (point.time_ns < since || point.time_ns > until) continue;
+      if (!match(point)) continue;
+      if (count == 0) min = max = point.value;
+      min = std::min(min, point.value);
+      max = std::max(max, point.value);
+      last = point.value;
+      ++count;
+    }
+    if (count > 0) {
+      metrics.push_back({{"name", name},
+                         {"count", count},
+                         {"min", min},
+                         {"max", max},
+                         {"last", last}});
+    }
+  };
+  summarize("host.load1", [&](const MetricPoint& p) {
+    auto it = p.labels.find("node");
+    return it != p.labels.end() && trace_nodes.count(it->second) != 0;
+  });
+  summarize("host.mem_used_ratio", [&](const MetricPoint& p) {
+    auto it = p.labels.find("node");
+    return it != p.labels.end() && trace_nodes.count(it->second) != 0;
+  });
+  summarize("process.rss_bytes", [&](const MetricPoint& p) {
+    auto node_it = p.labels.find("node");
+    auto pid_it = p.labels.find("pid");
+    if (node_it == p.labels.end() || pid_it == p.labels.end()) return false;
+    int32_t pid = std::atoi(pid_it->second.c_str());
+    return trace_processes.count({node_it->second, pid}) != 0;
+  });
+
+  return {{"nodes", nodes},
+          {"processes", processes},
+          {"metrics", metrics},
+          {"trace_window",
+           {{"start_ns", trace.first_ns},
+            {"end_ns", trace.last_ns},
+            {"start", iso_time(trace.first_ns)},
+            {"end", iso_time(trace.last_ns)}}}};
+}
+
 nlohmann::json trace_detail_json(ServerContext& ctx, const std::string& trace_id) {
   TraceData trace;
   if (!ctx.store.get_trace(trace_id, &trace)) {
@@ -351,6 +535,7 @@ nlohmann::json trace_detail_json(ServerContext& ctx, const std::string& trace_id
     logs.push_back(log_to_json(log));
   }
   out["logs"] = logs;
+  out["context"] = trace_context_json(ctx, trace);
   return out;
 }
 
@@ -465,6 +650,7 @@ nlohmann::json mcp_tools() {
                             {"request_id", {{"type", "string"}}},
                             {"task_id", {{"type", "string"}}},
                             {"service", {{"type", "string"}}},
+                            {"error_code", {{"type", "string"}}},
                             {"q", {{"type", "string"}}},
                             {"error", {{"type", "boolean"}}},
                             {"min_duration_ns", {{"type", "integer"}}},
@@ -537,6 +723,7 @@ nlohmann::json mcp_call_tool(ServerContext& ctx, const std::string& name,
     query.request_id = args.value("request_id", std::string());
     query.task_id = args.value("task_id", std::string());
     query.service = args.value("service", std::string());
+    query.error_code = args.value("error_code", std::string());
     query.text = args.value("q", std::string());
     query.errors_only = args.value("error", false);
     query.min_duration_ns =
@@ -990,6 +1177,7 @@ void register_routes(httplib::Server& server, ServerContext& ctx) {
     query.request_id = param(req, "request_id");
     query.task_id = param(req, "task_id");
     query.service = param(req, "service");
+    query.error_code = param(req, "error_code");
     query.text = param(req, "q");
     query.errors_only = param_bool(req, "error");
     query.since_ns = param_u64(req, "since_ns");
@@ -1071,6 +1259,19 @@ void register_routes(httplib::Server& server, ServerContext& ctx) {
     send_json(res, metrics_json(ctx, param(req, "name"),
                                 param_u64(req, "since_ns"),
                                 param_u64(req, "limit", 2000)));
+  });
+
+  server.Get("/api/error-codes", [&ctx, guard](const httplib::Request& req,
+                                               httplib::Response& res) {
+    if (!guard(req, res)) return;
+    uint64_t since = param_u64(req, "since_ns", 0);
+    if (since == 0) {
+      const uint64_t now = now_ns();
+      since = now > 3600000000000ull ? now - 3600000000000ull : 0;
+    }
+    send_json(res, {{"error_codes",
+                     error_codes_json(ctx, since,
+                                      param_u64(req, "limit", 100))}});
   });
 
   server.Get("/api/probes", [&ctx, guard](const httplib::Request& req,
@@ -1526,6 +1727,28 @@ void register_routes(httplib::Server& server, ServerContext& ctx) {
                   return;
                 }
                 send_json(res, {{"commands", ids}});
+              });
+
+  server.Post("/api/control/dump-stacks",
+              [&ctx, guard](const httplib::Request& req,
+                            httplib::Response& res) {
+                if (!guard(req, res)) return;
+                nlohmann::json body;
+                std::string error;
+                if (!parse_body(req, &body, &error)) {
+                  send_error(res, 400, error);
+                  return;
+                }
+                const std::string node = body.value("node", std::string());
+                const int32_t pid = body.value("pid", 0);
+                if (node.empty() || pid <= 0) {
+                  send_error(res, 400, "需要 node 与 pid");
+                  return;
+                }
+                const std::string id = ctx.commands.enqueue(
+                    node, std::string(), pid, "dump_stacks",
+                    nlohmann::json::object(), 60000000000ull);
+                send_json(res, {{"command", id}});
               });
 
   // ------------------------------------------------------------ 诊断 / 巡检 / 证据

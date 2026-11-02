@@ -61,7 +61,9 @@ struct TraceQuery {
   std::string request_id;
   std::string task_id;
   std::string service;
-  // 统一搜索：匹配 trace_id / request_id / task_id / 服务名，子串、忽略大小写。
+  // 按错误码精确过滤（任意 Span 命中即匹配）。
+  std::string error_code;
+  // 统一搜索：匹配 trace_id / request_id / task_id / 服务名 / 错误码，子串、忽略大小写。
   std::string text;
   bool errors_only = false;
   bool slow_only = false;

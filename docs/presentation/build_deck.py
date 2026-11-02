@@ -22,6 +22,8 @@ from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.oxml.ns import qn
 from pptx.util import Emu, Inches, Pt
 
+ROOT_PRESENTATION = os.path.dirname(os.path.abspath(__file__))
+
 # ---------------------------------------------------------------- 主题
 
 # macOS 上优先用 PingFang SC；Windows/WPS 会回退到微软雅黑等中文字体。
@@ -1080,7 +1082,7 @@ def slide_innovation(prs, n):
         ("05", "对生产零影响",
          "fail-open、热路径无锁、\n崩溃处理 async-signal-safe。"),
         ("06", "全链路可验证",
-         "149 个测试、\n21 类端到端场景。"),
+         "151 个测试、\n22 类端到端场景。"),
     ]
     for i, (num, title, body) in enumerate(items):
         x = LEFT + (i % 3) * 4.05
@@ -1320,6 +1322,43 @@ def slide_client_detail(prs, n):
         "业务日志自动继承上下文；两侧各上报自己的 span，中心按 parent 拼起来。")
 
 
+
+def slide_multidim(prs, n):
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    add_bg(slide, BG)
+    add_title(slide, "多维度排障：错误码 → 时序 → 线程 → 进程 → 系统",
+              "错误码只是入口；沿时序链把线程、进程、节点串起来")
+    layers = [
+        ("错误码", "跨链路/服务聚合，给传播路径", RED),
+        ("时序链", "错误传播链、首个错误、关键路径", AMBER),
+        ("线程", "泳道时间线，>100ms 空档、错误 Span", TEAL),
+        ("进程", "pid、命令行、RSS、线程数、状态", BLUE),
+        ("系统", "节点 load/内存，trace 窗口指标", RGBColor(0x6D, 0x5B, 0xE7)),
+    ]
+    for i, (title, body, color) in enumerate(layers):
+        y = 1.45 + i * 0.92
+        add_rect(slide, LEFT, y, 5.5, 0.78, WHITE, LINE,
+                 MSO_SHAPE.ROUNDED_RECTANGLE, 0.08)
+        add_rect(slide, LEFT, y + 0.1, 0.07, 0.58, color)
+        add_text(slide, LEFT + 0.22, y + 0.1, 0.85, 0.3, title, size=12,
+                 bold=True, color=color)
+        add_text(slide, LEFT + 1.15, y + 0.18, 4.2, 0.45, body, size=10.5,
+                 color=INK)
+    slide.shapes.add_picture(
+        os.path.join(ROOT_PRESENTATION, "..", "..", "examples",
+                     "screenshots", "14-trace-thread.png"),
+        Inches(6.55), Inches(1.45), width=Inches(6.0))
+    add_rect(slide, LEFT, 6.35, WIDTH, 0.5, SOFT_BLUE,
+             shape=MSO_SHAPE.ROUNDED_RECTANGLE, radius=0.12)
+    add_text(slide, LEFT, 6.47, WIDTH, 0.3,
+             "诊断报告输出 error_chain / threads / remediation：只给可审计的观察与只读命令，"
+             "不自动重启业务。",
+             size=10.5, bold=True, color=BLUE_DARK, align=PP_ALIGN.CENTER)
+    add_footer(slide, n)
+    slide.notes_slide.notes_text_frame.text = (
+        "这一页讲“立体”：错误码横向聚合只是入口，点进 trace 后看错误传播链、"
+        "线程泳道、进程与节点/系统指标，诊断报告给出安全的恢复建议。")
+
 def slide_adoption(prs, n):
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     add_bg(slide, BG)
@@ -1416,12 +1455,12 @@ def slide_roadmap(prs, n):
         "Python / Web 客户端 trace 接入",
         "入库脱敏、事件 Webhook 通知",
         "异常追踪、静默、拨测、仪表板快照",
-        "149 个测试 + 21 类端到端场景",
+        "151 个测试 + 22 类端到端场景",
     ]
     add_bullets(slide, LEFT + 0.3, 2.18, 5.35, 3.3, done, size=11.5,
                 gap=0.14)
     add_text(slide, LEFT + 0.3, 5.62, 5.3, 0.3,
-             "验收：ctest 全绿 + Web UI 16 个视图回归", size=10,
+             "验收：ctest 全绿 + Web UI 17 个视图回归", size=10,
              bold=True, color=TEAL)
     add_rect(slide, 6.95, 1.55, 5.6, 4.75, WHITE, LINE,
              MSO_SHAPE.ROUNDED_RECTANGLE, 0.05)
@@ -1576,12 +1615,13 @@ def main():
     slide_innovation(prs, 17)
     slide_scenarios(prs, 18)
     slide_quick_diagnosis(prs, 19)
-    slide_clients(prs, 20)
-    slide_client_detail(prs, 21)
-    slide_adoption(prs, 22)
-    slide_compare(prs, 23)
-    slide_roadmap(prs, 24)
-    slide_end(prs, 25)
+    slide_multidim(prs, 20)
+    slide_clients(prs, 21)
+    slide_client_detail(prs, 22)
+    slide_adoption(prs, 23)
+    slide_compare(prs, 24)
+    slide_roadmap(prs, 25)
+    slide_end(prs, 26)
 
     out_dir = os.path.dirname(os.path.abspath(__file__))
     out = os.path.join(out_dir, "vmon-intro.pptx")

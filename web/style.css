@@ -282,3 +282,21 @@ a { color: var(--accent); }
 }
 .flame-sep { color: var(--muted); }
 .flame-hint { margin-left: auto; font-size: 11px; }
+
+/* 线程时间线与立体上下文 */
+.thread-svg {
+  width: 100%;
+  height: auto;
+  background: #0d1420;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.thread-label {
+  fill: var(--muted);
+  font-size: 10px;
+  font-family: var(--mono);
+}
+.thread-axis { fill: var(--muted); font-size: 9px; }
+.thread-span { fill: var(--accent); fill-opacity: 0.85; }
+.thread-span.bad { fill: var(--error); }
+.thread-gap { fill: var(--warn); fill-opacity: 0.35; }

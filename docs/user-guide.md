@@ -107,6 +107,26 @@ curl -s -H "X-Vmon-Token: $TOKEN" \
 curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/logs/clusters?limit=20"
 ```
 
+### 2.3.1 错误码横向定位：同一错误码跨多链路
+
+复杂系统里同一个错误码往往出现在多条请求、多个服务上。不要只看一条 trace，
+先看「错误码定位」：
+
+![错误码定位](../examples/screenshots/15-error-codes.png)
+
+- 汇总同一错误码的调用链数、Span 数、涉及服务、根服务、首次/最近时间；
+- 给出示例传播路径：`demo-python/Python/CallErrorBackend [E_HTTP_500] →
+  http-backend/HTTP/echo [E_ECHO]`；
+- 点击「查看 trace」直接回到完整时序链；
+- API：
+
+```bash
+curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/error-codes?limit=100"
+curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/traces?error_code=E_ECHO"
+```
+
+`q` 搜索也会匹配错误码，例如 `q=e_echo`。
+
 ### 2.4 重复错误：异常追踪 Issue
 
 「异常」页把错误日志模板与崩溃指纹聚合成 Issue：
@@ -197,6 +217,49 @@ curl -s -X POST -H "X-Vmon-Token: $TOKEN" \
 
 「崩溃」页显示信号、次数、节点、原因、build_id、二进制、pid；有 debuginfo
 时显示符号化栈，否则回退地址。崩溃同时进入事件中心，可被规则/Issue 聚合。
+
+### 2.11 立体视图：线程 / 进程 / 系统
+
+打开一条错误 trace，除了 Span 树和瀑布图，还能看到三层上下文：
+
+![错误传播链](../examples/screenshots/13-trace-multidim.png)
+
+![线程时间线](../examples/screenshots/14-trace-thread.png)
+
+- **错误传播链**：所有错误 Span 按开始时间排序，显示偏移、服务/方法、错误码、
+  线程与耗时；`first_path` 是从根到首个错误的完整路径。
+- **线程视图**：按 `service/instance/node/tid` 分行，彩色条是 Span，红色是错误，
+  橙色是超过 100ms 的空档；用于快速发现锁等待、IO 阻塞、线程池排队。
+- **进程 / 节点 / 系统**：trace 涉及的 pid、命令行、状态、RSS、线程数；
+  节点 OS/内核/架构/load/内存；trace 时间窗内的 `host.load1`、
+  `host.mem_used_ratio`、`process.rss_bytes` 摘要。
+
+> macOS 开发机通过 `ps` 兜底，进程线程数/内存字段可能不完整；Linux 目标机
+> 使用 `/proc`，字段完整。
+
+### 2.12 诊断建议与恢复动作
+
+`POST /api/diagnose` 除了 `verdict / hypotheses / error_chain / threads`，还会返回
+`remediation` 建议动作，例如：
+
+```json
+{"title":"抓取全线程栈","action":"command","risk":"low",
+ "detail":"线程视图出现多线程或长空档时，抓取现场线程栈确认锁/IO/调度阻塞",
+ "command":"POST /api/control/dump-stacks {node,pid}"}
+```
+
+设计原则：**只给可审计的观察/只读命令，不自动重启或修改业务数据**。
+安全动作可以直接执行：
+
+```bash
+# 抓全线程栈（只读）
+curl -s -H "X-Vmon-Token: $TOKEN" -H 'Content-Type: application/json'   -d '{"node":"node-a","pid":1234}' "$BASE/api/control/dump-stacks"
+
+# 临时 debug 日志（带 TTL，到期自动恢复）
+curl -s -H "X-Vmon-Token: $TOKEN" -H 'Content-Type: application/json'   -d '{"service":"order","level":"debug","ttl_ms":60000}'   "$BASE/api/control/log-level"
+```
+
+重启/回滚等有风险动作只作为建议，由人确认后在平台侧执行；证据包用于复盘。
 
 ## 3. 完整案例
 
@@ -482,6 +545,7 @@ curl -s -X POST -H "X-Vmon-Token: demo-token" \
 | 节点 | OS/内核/架构、内存、进程快照 |
 | 事件 | 告警/崩溃/发布，ack/resolve，分组 |
 | 异常 | Issue 聚合、指派、ack/resolve、关联 trace |
+| 错误码 | 同一错误码跨链路/服务聚合、传播路径、查看 trace |
 | 崩溃 | 信号、帧、build_id、指纹 |
 | 剖析 | Top self、SVG 火焰图、点击放大 |
 | 指标 | 按名字查询、分组折线 |

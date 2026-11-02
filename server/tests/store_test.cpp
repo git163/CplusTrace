@@ -92,6 +92,17 @@ TEST(Store, AssemblesTraceAcrossBeginEndEvents) {
   TraceQuery errors;
   errors.errors_only = true;
   EXPECT_EQ(1u, store.query_traces(errors).size());
+
+  TraceQuery by_error_code;
+  by_error_code.error_code = "E_ORDER";
+  EXPECT_EQ(1u, store.query_traces(by_error_code).size());
+  by_error_code.error_code = "E_MISSING";
+  EXPECT_TRUE(store.query_traces(by_error_code).empty());
+
+  TraceQuery by_error_text;
+  by_error_text.text = "e_order";
+  EXPECT_EQ(1u, store.query_traces(by_error_text).size());
+
   EXPECT_EQ(1u, store.traces_for_request("R1", 10).size());
 }
 

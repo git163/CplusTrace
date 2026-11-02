@@ -98,6 +98,18 @@ request_id 和 CLI 命令；按 Ctrl+C 结束。
 - 悬停显示函数、样本数与占比；
 - 顶部仍保留 Top self 列表，便于快速看热点。
 
+### 3.6 错误码定位与立体视图
+
+![错误码定位](screenshots/15-error-codes.png)
+
+![错误传播链](screenshots/13-trace-multidim.png)
+
+![线程时间线](screenshots/14-trace-thread.png)
+
+- 「错误码」页把同一错误码跨调用链、跨服务聚合，并列出示例传播路径；
+- Trace 详情增加错误传播链、线程时间线、进程/节点/系统上下文；
+- 线程时间线里的橙色空档表示 >100ms 的间隔，红色条表示错误 Span。
+
 ## 4. 各示例说明
 
 ### 4.1 hello：最小业务接入

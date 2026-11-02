@@ -207,10 +207,16 @@ nlohmann::json Diagnostics::diagnose(Store& store, CrashStore& crashes,
   SpanData first_error;
   SpanData slowest;
   bool has_error = false;
+  TraceData primary_trace;
+  bool has_primary = false;
   for (const std::string& trace_id : trace_ids) {
     TraceData trace;
     if (!store.get_trace(trace_id, &trace)) continue;
     const TraceAnalysis analysis = analyze_trace(trace);
+    if (!has_primary || (analysis.has_error && !has_error)) {
+      primary_trace = trace;
+      has_primary = true;
+    }
     traces.push_back(analysis_to_json(trace, analysis));
     if (analysis.has_error &&
         (!has_error || analysis.first_error.start_ns < first_error.start_ns)) {
@@ -222,6 +228,12 @@ nlohmann::json Diagnostics::diagnose(Store& store, CrashStore& crashes,
     }
   }
   report["traces"] = traces;
+  const nlohmann::json primary_chain =
+      has_primary ? error_chain(primary_trace) : nlohmann::json::object();
+  const nlohmann::json primary_threads =
+      has_primary ? thread_timeline(primary_trace) : nlohmann::json::object();
+  report["error_chain"] = primary_chain;
+  report["threads"] = primary_threads;
   report["first_error"] = has_error ? span_to_json(first_error) : nlohmann::json();
   report["slowest_span"] =
       slowest.span.empty() ? nlohmann::json() : span_to_json(slowest);
@@ -325,12 +337,88 @@ nlohmann::json Diagnostics::diagnose(Store& store, CrashStore& crashes,
     }
   }
 
+  // 多线程/时序维度：错误不止看错误码，还要看发生在哪个线程、是否有长空档。
+  if (has_primary) {
+    const nlohmann::json& thread_info = primary_threads;
+    if (thread_info.value("multi_threaded", false)) {
+      add_hypothesis(
+          "多线程链路：错误跨线程传播", "medium",
+          "trace 涉及 " + std::to_string(thread_info.value("thread_count", 0)) +
+              " 个线程；检查线程池/队列/异步回调的上下文传递与锁竞争");
+    }
+    const size_t long_gaps = thread_info.value("long_gaps", 0);
+    if (long_gaps > 0) {
+      add_hypothesis(
+          "线程存在长空档，疑似等待锁/IO/调度", "medium",
+          std::to_string(long_gaps) +
+              " 处线程间隔超过 100ms；结合线程视图与 /proc 快照确认阻塞点");
+    }
+    const nlohmann::json& chain = primary_chain;
+    if (chain.value("count", 0) > 1) {
+      add_hypothesis(
+          "错误沿调用链传播", "high",
+          std::to_string(chain.value("count", 0)) +
+              " 个错误 Span；按 first_path 从根到叶子确认首个错误点");
+    }
+  }
+
   if (hypotheses.empty()) {
     add_hypothesis("证据不足，需要更多上下文", "low",
                    "未命中任何已知错误模式，建议导出证据包进一步分析");
   }
   report["hypotheses"] = hypotheses;
   report["verdict"] = verdict;
+
+  // 建议动作：只给可审计的观察/只读命令，不自动重启或修改业务数据。
+  nlohmann::json remediation = nlohmann::json::array();
+  auto add_action = [&remediation](const std::string& title,
+                                   const std::string& action,
+                                   const std::string& risk,
+                                   const std::string& detail,
+                                   const std::string& command) {
+    remediation.push_back({{"title", title},
+                           {"action", action},
+                           {"risk", risk},
+                           {"detail", detail},
+                           {"command", command}});
+  };
+  if (has_error) {
+    add_action("沿 first_path 逐跳核对", "observe", "low",
+               "错误码只是结果；按根到错误的路径确认每个服务的耗时、错误码与日志",
+               "GET /api/traces/" +
+                   (primary_trace.trace_id.empty() ? std::string("<trace_id>")
+                                                   : primary_trace.trace_id));
+  }
+  if (primary_threads.value("long_gaps", 0) > 0 ||
+      primary_threads.value("multi_threaded", false)) {
+    add_action("抓取全线程栈", "command", "low",
+               "线程视图出现多线程或长空档时，抓取现场线程栈确认锁/IO/调度阻塞",
+               "POST /api/control/dump-stacks {node,pid}");
+  }
+  if (verdict == "lock_contention") {
+    add_action("检查锁等待与线程池队列", "observe", "medium",
+               "结合线程视图、全线程栈与队列深度，确认持锁者和等待链",
+               "POST /api/control/dump-stacks");
+  }
+  if (verdict == "oom") {
+    add_action("核对进程 RSS 与系统内存", "observe", "medium",
+               "查看 trace 时间窗内的 process.rss_bytes / host.mem_used_ratio",
+               "GET /api/metrics?name=process.rss_bytes");
+  }
+  if (verdict == "downstream_timeout" || verdict == "downstream_unavailable") {
+    add_action("检查下游 deadline / 重试 / 部署状态", "observe", "low",
+               "先确认下游是否重启、发布或过载；不要在证据不足时直接重启",
+               "GET /api/topology");
+  }
+  if (!has_error) {
+    add_action("临时开启 debug 日志", "command", "low",
+               "对目标服务/实例下发带 TTL 的 debug 级别，复现后自动恢复",
+               "POST /api/control/log-level {service,level:debug,ttl_ms}");
+  }
+  add_action("导出证据包", "observe", "low",
+             "把 trace、日志、指标、剖析、崩溃与时间线打包，便于复核/AI 分析",
+             "POST /api/evidence");
+  report["remediation"] = remediation;
 
   // 现场命令：抓线程栈（只读）。
   nlohmann::json command_ids = nlohmann::json::array();

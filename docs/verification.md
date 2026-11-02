@@ -28,20 +28,20 @@ ctest --test-dir build --output-on-failure
 最近一次结果（加入 Python/Web 客户端与 HTTP 后端后）：
 
 ```
-1/6 Test #1: vmon_e2e ............   Passed  19.45 sec
+1/6 Test #1: vmon_e2e ............   Passed  19.21 sec
 2/6 Test #2: vmon_python_client ...   Passed   0.58 sec
 3/6 Test #3: vmon_web_client ......   Passed   0.05 sec
 4/6 Test #4: vmon_sdk_tests .......   Passed   0.00 sec
 5/6 Test #5: vmon_server_tests ....   Passed   0.05 sec
-6/6 Test #6: vmon_agent_tests .....   Passed   2.40 sec
+6/6 Test #6: vmon_agent_tests .....   Passed   2.38 sec
 
 100% tests passed, 0 tests failed out of 6
 ```
 
-测试数量：C++ 单元 135 个（SDK 19、Server 77、Agent 39），
-Python 客户端 9 个，Web 客户端 5 个，共 149 个测试；
-端到端场景 21 类。
-Web UI 16 个视图的真实浏览器回归记录见 [ui-test-report.md](ui-test-report.md)。
+测试数量：C++ 单元 137 个（SDK 19、Server 79、Agent 39），
+Python 客户端 9 个，Web 客户端 5 个，共 151 个测试；
+端到端场景 22 类。
+Web UI 17 个视图的真实浏览器回归记录见 [ui-test-report.md](ui-test-report.md)。
 
 ## 2. 端到端覆盖
 
@@ -71,6 +71,7 @@ Web UI 16 个视图的真实浏览器回归记录见 [ui-test-report.md](ui-test
 | 19 | 告警静默 | 创建/列表/删除静默；重复删除 404（规则抑制由单测覆盖） |
 | 20 | 可用性拨测 | Agent 拨测本地 HTTP 目标，`probe.up/duration/status` 指标与 `/api/probes` 均为 UP |
 | 21 | 仪表板/快照 | 指标/链路/文本三类 widget 计算正确；生成快照并可读取；删除后 404 |
+| 22 | 错误码跨链路 | `/api/error-codes` 聚合 E_ECHO 的 trace 数、服务与传播路径；`/api/traces?error_code=` 可查；trace 详情含 error_chain/threads/context |
 
 运行方式（也可直接 `ctest -R vmon_e2e`）：
 

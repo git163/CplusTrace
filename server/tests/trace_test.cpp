@@ -182,4 +182,50 @@ TEST(TraceBuilder, AnalyzePicksSlowestAndFirstError) {
   EXPECT_EQ(100u, analysis.slowest_span.duration_ns());
 }
 
+
+TEST(TraceBuilder, ErrorChainShowsPropagationPath) {
+  const TraceData trace = MakeSampleTrace();
+  const nlohmann::json chain = vmon::server::error_chain(trace);
+  EXPECT_EQ(1, chain["count"].get<int>());
+  ASSERT_EQ(1u, chain["errors"].size());
+  EXPECT_EQ("E_CACHE", chain["errors"][0]["error_code"].get<std::string>());
+  const nlohmann::json path = chain["first_path"];
+  ASSERT_GE(path.size(), 2u);
+  EXPECT_EQ("gateway", path[0]["service"].get<std::string>());
+  EXPECT_EQ("gateway", path[path.size() - 1]["service"].get<std::string>());
+}
+
+TEST(TraceBuilder, ThreadTimelineFindsMultiThreadAndGaps) {
+  TraceData trace;
+  trace.trace_id = "trace-thread";
+  trace.first_ns = 1000000;
+  trace.last_ns = 210000000;
+  SpanData a = MakeSpan("a", "", "gateway", "Handle", 1000000, 1010000);
+  a.tid = 7;
+  SpanData b = MakeSpan("b", "a", "gateway", "Slow", 200000000, 201000000);
+  b.tid = 7;
+  b.status = "error";
+  b.error_code = "E_SLOW";
+  SpanData c = MakeSpan("c", "", "order", "Worker", 1000000, 210000000);
+  c.tid = 8;
+  trace.spans["a"] = a;
+  trace.spans["b"] = b;
+  trace.spans["c"] = c;
+
+  const nlohmann::json info = vmon::server::thread_timeline(trace);
+  EXPECT_TRUE(info["multi_threaded"].get<bool>());
+  EXPECT_EQ(2u, info["thread_count"].get<size_t>());
+  EXPECT_GE(info["long_gaps"].get<size_t>(), 1u);
+
+  bool found_error_thread = false;
+  for (const auto& thread : info["threads"]) {
+    if (thread["tid"].get<int32_t>() == 7) {
+      found_error_thread = true;
+      EXPECT_EQ(1u, thread["error_count"].get<size_t>());
+      EXPECT_GE(thread["gaps"].size(), 1u);
+    }
+  }
+  EXPECT_TRUE(found_error_thread);
+}
+
 }  // namespace
