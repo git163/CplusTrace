@@ -3,6 +3,49 @@
 > 面向想真正理解系统的开发者。先读 [module-design.md](module-design.md) 的模块边界，
 > 再看这篇原理；最后用 [onboarding.md](onboarding.md) 跑起来验证。
 
+## 0. 快速上手（先跑起来，再看原理）
+
+```bash
+git clone https://github.com/git163/CplusTrace.git
+cd CplusTrace
+
+# 1) 一键编译 + 跑测试（6 组：SDK/Server/Agent/Python/Web/E2E）
+./scripts/build.sh --test
+
+# 2) 启动 Server + Agent（默认监听 0.0.0.0，打印局域网地址）
+./scripts/vmon.sh up
+./scripts/vmon.sh status
+
+# 3) 造一条真实请求
+./examples/hello/run_demo.sh
+python3 examples/scenarios/demo.py --scenario all --keep
+```
+
+`vmon.sh up` 会打印：
+
+```
+Web UI : http://<本机IP>:18428/   （局域网）
+          http://127.0.0.1:18428/  （本机）
+令牌   : dev-token
+```
+
+打开 Web UI，用脚本打印的 `request_id` 搜索，按这个顺序看：
+
+```
+总览 → 调用链（Span 树/瀑布图/错误传播链/线程/进程/系统）
+→ 日志/聚类 → 错误码 → 诊断 → 证据包
+```
+
+只想改代码、不跑全栈时：
+
+```bash
+./scripts/build.sh --no-tests --no-examples -j 8
+ctest --test-dir build -R vmon_e2e --output-on-failure
+```
+
+> 局域网访问需防火墙放行端口，并把默认 `dev-token` 换成强随机串。
+> 更详细的开发流程见 [onboarding.md](onboarding.md)，使用手册见 [user-guide.md](user-guide.md)。
+
 ## 1. 一句话架构
 
 ```
