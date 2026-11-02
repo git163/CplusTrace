@@ -19,12 +19,20 @@
 ./scripts/vmon.sh down
 ```
 
-默认地址 `http://127.0.0.1:18428/`，令牌 `dev-token`。改端口/目录：
+`up` 会打印两个地址：
+
+- 局域网：`http://<本机IP>:18428/`（其他机器可访问）；
+- 本机：`http://127.0.0.1:18428/`。
+
+默认监听 `0.0.0.0`，令牌 `dev-token`。**给局域网使用时务必改成强随机令牌**：
 
 ```bash
-PORT=19428 VMON_TOKEN=mytoken VMON_HOME=/tmp/vmon \
+PORT=19428 VMON_TOKEN="$(openssl rand -hex 16)" VMON_HOME=/tmp/vmon \
   ./scripts/vmon.sh up
 ```
+
+只允许本机访问时设置 `LISTEN_HOST=127.0.0.1`；服务器有防火墙时需放行
+`PORT`（默认 18428）。
 
 ### 1.2 造一条真实请求
 
@@ -646,6 +654,7 @@ MCP（内部只读）：
 | 现象 | 原因与处理 |
 |---|---|
 | 页面全是「未授权」 | 左上角令牌与服务端 `--token` 不一致 |
+| 局域网其他机器打不开 | 确认 `LISTEN_HOST=0.0.0.0`、防火墙放行端口、机器在同一网段；用 `./scripts/vmon.sh status` 看监听与健康检查 |
 | 调用链为空 | 业务未初始化 SDK、Agent 未启动或 UDS 路径不一致 |
 | 有 trace 没日志 | 日志未走 vmon 宏，或未带 request_id/trace_id |
 | 指标页为空 | Agent 未扫描或未到上传周期；进程指标需 `--process-metrics` |

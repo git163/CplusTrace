@@ -100,6 +100,15 @@ sudo install -m 0640 deploy/agent.json  /etc/vmon/agent.json
 | `enable_mcp` | MCP 接口 | 仅内部使用；对外发行版设为 `false` |
 | `evidence_salt` | 证据包 IP/邮箱等假名化盐 | 随机值，妥善保管 |
 
+### 4.1 局域网访问
+
+- `listen_host` 设为 `0.0.0.0`（默认），节点/办公网通过
+  `http://<中心IP>:18428/` 打开 Web UI；
+- 防火墙放行 TCP `18428`（或自定义端口），只允许内网网段；
+- 必须设置强随机 `token`，浏览器首次打开时填写；
+- 不要把端口映射到公网；当前无 TLS/RBAC，安全边界依赖内网与 token；
+- 反向代理/HTTPS 需自行在网关层终止 TLS，并保留 `X-Vmon-Token` 头。
+
 启动与检查：
 
 ```bash

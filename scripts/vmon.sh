@@ -11,9 +11,11 @@
 #
 # 常用环境变量：
 #   PORT=18428          监听的 HTTP 端口
-#   VMON_TOKEN=dev-token 访问令牌
+#   LISTEN_HOST=0.0.0.0 监听地址（默认所有网卡，局域网可访问）
+#   VMON_TOKEN=dev-token 访问令牌（局域网使用请改成强随机串）
 #   VMON_HOME=.vmon-run  运行目录（PID、日志、WAL、状态文件）
 #   NODE_NAME=...        节点名，默认主机名
+#   LAN_IP=...           对外展示的局域网 IP，默认自动探测
 #   PROCESS_FILTER=...   只采集命令行包含该子串的进程，默认全部
 #   BUILD_DIR=build      构建产物目录
 #
@@ -28,8 +30,30 @@ AGENT_BIN=${AGENT_BIN:-"$BUILD/vmon_agent"}
 RUN_DIR=${VMON_HOME:-"$ROOT/.vmon-run"}
 PORT=${PORT:-18428}
 TOKEN=${VMON_TOKEN:-dev-token}
-HOST=${LISTEN_HOST:-127.0.0.1}
+HOST=${LISTEN_HOST:-0.0.0.0}
+CONNECT_HOST=${CONNECT_HOST:-127.0.0.1}
 NODE=${NODE_NAME:-$(hostname -s 2>/dev/null || hostname)}
+
+# 自动探测局域网 IP，用于打印可被其他机器访问的 Web 地址。
+detect_lan_ip() {
+  if [[ -n "${LAN_IP:-}" ]]; then
+    printf '%s' "$LAN_IP"
+    return
+  fi
+  local ip=""
+  if command -v ipconfig >/dev/null 2>&1; then
+    ip=$(ipconfig getifaddr en0 2>/dev/null || true)
+    [[ -z "$ip" ]] && ip=$(ipconfig getifaddr en1 2>/dev/null || true)
+  fi
+  if [[ -z "$ip" ]] && command -v hostname >/dev/null 2>&1; then
+    ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+  fi
+  if [[ -z "$ip" ]]; then
+    ip="127.0.0.1"
+  fi
+  printf '%s' "$ip"
+}
+LAN_IP=$(detect_lan_ip)
 UDS=${AGENT_UDS:-"$RUN_DIR/agent.sock"}
 CTRL_DIR=${CONTROL_DIR:-"$RUN_DIR/ctrl"}
 CRASH_DIR=${CRASH_DIR:-"$RUN_DIR/crash"}
@@ -40,7 +64,12 @@ AGENT_LOG="$RUN_DIR/agent.log"
 SERVER_PID_FILE="$RUN_DIR/server.pid"
 AGENT_PID_FILE="$RUN_DIR/agent.pid"
 PROCESS_FILTER=${PROCESS_FILTER:-}
-BASE_URL="http://$HOST:$PORT"
+CONNECT_URL="http://$CONNECT_HOST:$PORT"
+if [[ "$HOST" == "0.0.0.0" || "$HOST" == "::" ]]; then
+  PUBLIC_URL="http://$LAN_IP:$PORT"
+else
+  PUBLIC_URL="http://$HOST:$PORT"
+fi
 
 log() { printf '[vmon] %s\n' "$*"; }
 err() { printf '[vmon] 错误：%s\n' "$*" >&2; }
@@ -73,7 +102,7 @@ pid_of() {
 wait_http() {
   local i
   for i in $(seq 1 100); do
-    if curl -sf --max-time 1 "$BASE_URL/api/health" >/dev/null 2>&1; then
+    if curl -sf --max-time 1 "$CONNECT_URL/api/health" >/dev/null 2>&1; then
       return 0
     fi
     sleep 0.1
@@ -96,7 +125,7 @@ start_server() {
     return 0
   fi
   mkdir -p "$RUN_DIR" "$SERVER_STATE"
-  log "启动 Server：$BASE_URL"
+  log "启动 Server：监听 $HOST:$PORT，Web UI $PUBLIC_URL/"
   nohup "$SERVER_BIN" \
     --listen-host "$HOST" --port "$PORT" --token "$TOKEN" \
     --state-dir "$SERVER_STATE" --web-dir "$ROOT/web" \
@@ -117,7 +146,7 @@ start_agent() {
   fi
   mkdir -p "$RUN_DIR" "$AGENT_STATE" "$CTRL_DIR" "$CRASH_DIR"
   local args=(
-    --server-url "$BASE_URL"
+    --server-url "$CONNECT_URL"
     --uds "$UDS"
     --state-dir "$AGENT_STATE"
     --node "$NODE"
@@ -170,7 +199,8 @@ cmd_up() {
   cat <<EOF
 
 [vmon] 已启动
-  Web UI : $BASE_URL/
+  Web UI : $PUBLIC_URL/   （局域网）
+            http://127.0.0.1:$PORT/   （本机）
   令牌   : $TOKEN
   UDS    : $UDS
   日志   : $SERVER_LOG
@@ -192,7 +222,7 @@ cmd_restart() {
 cmd_status() {
   local ok=0
   if pid=$(pid_of "$SERVER_PID_FILE"); then
-    if curl -sf --max-time 1 "$BASE_URL/api/health" >/dev/null 2>&1; then
+    if curl -sf --max-time 1 "$CONNECT_URL/api/health" >/dev/null 2>&1; then
       log "Server  : 运行中 pid=$pid，健康检查通过"
     else
       log "Server  : 运行中 pid=$pid，但健康检查失败"
@@ -213,7 +243,7 @@ cmd_status() {
     log "Agent   : 未运行"
     ok=1
   fi
-  log "Web UI  : $BASE_URL/（令牌 $TOKEN）"
+  log "Web UI  : $PUBLIC_URL/（本机 http://127.0.0.1:$PORT/，令牌 $TOKEN）"
   log "运行目录: $RUN_DIR"
   return "$ok"
 }

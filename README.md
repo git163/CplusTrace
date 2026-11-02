@@ -157,8 +157,10 @@ OUT_DIR=/tmp/release ./scripts/package.sh
 ./scripts/vmon.sh clean     # 停止并删除运行目录（需 FORCE=1）
 ```
 
-常用环境变量：`PORT`（默认 18428）、`VMON_TOKEN`（默认 dev-token）、
-`VMON_HOME`（默认 `.vmon-run`）、`NODE_NAME`、`PROCESS_FILTER`。
+常用环境变量：`PORT`（默认 18428）、`LISTEN_HOST`（默认 `0.0.0.0`，
+局域网可访问）、`VMON_TOKEN`（默认 dev-token，**局域网请改成强随机串**）、
+`VMON_HOME`（默认 `.vmon-run`）、`NODE_NAME`、`PROCESS_FILTER`、`LAN_IP`。
+`up` 会同时打印局域网地址（自动探测本机 IP）和本机 127.0.0.1 地址。
 脚本只操作自己 PID 文件里的进程，不会按进程名误杀。运行目录下有
 `server.log`、`agent.log`、`server/`、`agent/`（WAL 与状态）。
 
@@ -214,7 +216,8 @@ curl -s -H 'X-Vmon-Token: dev-token' \
 ./build/tools/vmonctl --server http://127.0.0.1:18428 --token dev-token overview
 ```
 
-浏览器打开 `http://127.0.0.1:18428/` 使用 Web UI。
+浏览器打开 `http://<中心IP>:18428/` 使用 Web UI（局域网其他机器可访问；
+本机可用 `http://127.0.0.1:18428/`）。
 
 ## 4. 业务接入
 
