@@ -7,6 +7,7 @@ C++ 系统（10–50 节点、50–200 进程），把「人工翻多机多进�
 > 关联每个环节的日志与错误 → 给出可疑根因与证据包。
 
 - **开发者上手指南（从 0 开始）**：[docs/onboarding.md](docs/onboarding.md)
+- **采集器原理**：[docs/collector-principles.md](docs/collector-principles.md)
 - **完整用户手册（案例 + 截图 + 演示）**：[docs/user-guide.md](docs/user-guide.md)
 - **快速诊断与定位**：[docs/quick-diagnosis.md](docs/quick-diagnosis.md)
 - **常用场景手册**：[docs/scenario-cookbook.md](docs/scenario-cookbook.md)

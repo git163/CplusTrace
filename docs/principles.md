@@ -127,6 +127,8 @@ SDK 只保存指针，sender 线程稍后才序列化，所以：
 
 ## 4. Agent 原理：本地先落账，再上传
 
+> 各采集器的细节见 [collector-principles.md](collector-principles.md)。
+
 ### 4.1 接入
 
 ```
