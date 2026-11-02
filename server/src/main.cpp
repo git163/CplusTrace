@@ -61,7 +61,7 @@ int main(int argc, char** argv) {
   app.add_option("--port", listen_port, "监听端口（默认 18428）");
   app.add_option("--web-dir", web_dir, "Web UI 静态资源目录");
   app.add_option("--state-dir", state_dir, "状态目录（规则、证据包）");
-  app.add_option("--token", token, "访问令牌（建议内网也设置）");
+  app.add_option("--token", token, "已废弃：兼容旧脚本，当前不鉴权");
   app.add_option("--vm-url", vm_url, "VictoriaMetrics 地址，如 http://127.0.0.1:8428");
   app.add_option("--vl-url", vl_url, "VictoriaLogs 地址，如 http://127.0.0.1:9428");
   app.add_flag("--no-forward", no_forward, "关闭向 VM/VL 的转发");
@@ -120,11 +120,6 @@ int main(int argc, char** argv) {
     std::cerr << "无法创建状态目录: " << config.state_dir << std::endl;
     return 1;
   }
-  if (config.token.empty()) {
-    std::cerr << "警告: 未设置访问令牌，任何能访问该端口的主机都能读取维测数据"
-              << std::endl;
-  }
-
   // 先屏蔽信号，确保所有线程创建后信号只由主线程 sigwait 消费。
   sigset_t signals;
   sigemptyset(&signals);

@@ -3,7 +3,6 @@
   "listen_port": 18428,
   "web_dir": "/opt/vmon/web",
   "state_dir": "/var/lib/vmon-server",
-  "token": "CHANGE_ME",
   "max_traces": 20000,
   "max_log_records": 200000,
   "retention_seconds": 21600,

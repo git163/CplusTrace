@@ -32,7 +32,6 @@ import urllib.parse
 import urllib.request
 import uuid
 
-TOKEN = "e2e-token"
 NODE = "e2e-node"
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -114,8 +113,6 @@ class Api:
         if body is not None:
             data = json.dumps(body).encode("utf-8")
             headers["Content-Type"] = "application/json"
-        if auth:
-            headers["X-Vmon-Token"] = TOKEN
         req = urllib.request.Request(
             self.base_url + path, data=data, headers=headers, method=method
         )
@@ -147,7 +144,7 @@ class Api:
 
     def raw_post(self, path, text, content_type="text/plain", timeout=10):
         """发送非 JSON 原文（剖析折叠栈等），返回 (status, parsed_json)。"""
-        headers = {"Content-Type": content_type, "X-Vmon-Token": TOKEN}
+        headers = {"Content-Type": content_type}
         req = urllib.request.Request(
             self.base_url + path, data=text.encode("utf-8"),
             headers=headers, method="POST")
@@ -263,7 +260,6 @@ class Harness:
             self.args.server_bin,
             "--listen-host", "127.0.0.1",
             "--port", str(self.port),
-            "--token", TOKEN,
             "--state-dir", self.server_state,
             "--web-dir", self.args.web_dir,
             "--no-forward",
@@ -317,7 +313,6 @@ class Harness:
             "--uds", self.uds,
             "--state-dir", self.agent_state,
             "--node", NODE,
-            "--token", TOKEN,
             "--control-dir", self.control_dir,
             "--crash-dir", self.crash_dir,
             "--command-interval-ms", "100",
@@ -533,7 +528,7 @@ def verify_trace_and_logs(harness, request_id):
 
 
 def verify_http_surface(harness):
-    """健康检查免鉴权、业务接口必须鉴权、静态资源可直接访问。"""
+    """健康检查、业务接口无需令牌、静态资源可直接访问。"""
     health = harness.api.ok("GET", "/api/health")
     if health.get("status") != "ok":
         raise E2EFailure("健康检查返回异常: %r" % health)
@@ -541,8 +536,8 @@ def verify_http_surface(harness):
         raise E2EFailure("资产目录未收录节点/实例: %r" % health)
 
     status, payload = harness.api.request("GET", "/api/overview", auth=False)
-    if status != 401:
-        raise E2EFailure("未带令牌访问业务接口应返回 401，实际 %s: %r" % (
+    if status != 200:
+        raise E2EFailure("无令牌访问业务接口应返回 200，实际 %s: %r" % (
             status, payload))
 
     status, _, html = harness.api.raw_get("/")
@@ -557,7 +552,7 @@ def verify_http_surface(harness):
     status, _ = harness.api.get("/api/traces/ffffffffffffffffffffffffffffffff")
     if status != 404:
         raise E2EFailure("不存在的 trace 应返回 404，实际 %s" % status)
-    log("PASS HTTP 面: 健康检查、401、静态资源、404 均符合预期")
+    log("PASS HTTP 面: 健康检查、无令牌访问、静态资源、404 均符合预期")
 
 
 def verify_queries(harness, request_id, context, pid):
@@ -761,7 +756,7 @@ def verify_python_rpc(harness):
     request_id = "e2e-py-" + uuid.uuid4().hex[:10]
     task_id = "task-" + request_id
     client = vmon_trace.Client(
-        harness.base_url, TOKEN, service="e2e-python", instance="py-1",
+        harness.base_url, service="e2e-python", instance="py-1",
         node=NODE, flush_interval=0.1)
     try:
         with client.span("Python/CallBackend", request_id=request_id,

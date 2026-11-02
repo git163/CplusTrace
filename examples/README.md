@@ -36,7 +36,7 @@ DEMO_KEEP=1 ./examples/hello/run_demo.sh
 python3 examples/scenarios/demo.py --scenario all --keep
 ```
 
-`--keep` 会保留进程与临时目录，脚本会打印 Web UI 地址、令牌、trace_id、
+`--keep` 会保留进程与临时目录，脚本会打印 Web UI 地址、trace_id、
 request_id 和 CLI 命令；按 Ctrl+C 结束。
 
 ## 3. Web UI 截图导览
@@ -45,6 +45,8 @@ request_id 和 CLI 命令；按 Ctrl+C 结束。
 通过 Playwright MCP 对浏览器截图得到。
 
 ### 3.1 总览：先判断有没有事
+
+> 截图采集于令牌功能移除前，右上角令牌框当前已移除。
 
 ![运行总览](screenshots/01-overview.png)
 
@@ -151,7 +153,7 @@ Python 调用：
 import sys; sys.path.insert(0, "clients/python")
 from vmon_trace import Client
 
-client = Client("http://127.0.0.1:18428", "dev-token",
+client = Client("http://127.0.0.1:18428",
                 service="py-demo", node="node-1")
 with client.span("Python/CallBackend", request_id="demo-rpc-1") as span:
     status, body = client.request(
@@ -181,13 +183,12 @@ python3 examples/scenarios/demo.py --scenario all --keep
 
 ```bash
 BASE=http://127.0.0.1:18428
-TOKEN=demo-token
 ```
 
 **告警静默**：
 
 ```bash
-curl -s -H "X-Vmon-Token: $TOKEN" -H 'Content-Type: application/json' \
+curl -s -H 'Content-Type: application/json' \
   -d '{"name":"发布窗口","service":"order","duration_minutes":30}' \
   "$BASE/api/silences"
 ```
@@ -203,7 +204,7 @@ vmon_agent ... --probe 'api=http://127.0.0.1:19090/health;interval_ms=5000'
 **仪表板**：
 
 ```bash
-curl -s -H "X-Vmon-Token: $TOKEN" -H 'Content-Type: application/json' \
+curl -s -H 'Content-Type: application/json' \
   -d '{"id":"dash-1","name":"值班看板","widgets":[
        {"type":"metric","title":"负载","metric":"host.load1"},
        {"type":"traces","title":"链路"},
@@ -216,7 +217,7 @@ curl -s -H "X-Vmon-Token: $TOKEN" -H 'Content-Type: application/json' \
 **异常追踪**：产生错误日志后打开「异常」页，或：
 
 ```bash
-curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/issues?limit=10"
+curl -s "$BASE/api/issues?limit=10"
 ```
 
 ## 6. 进一步阅读

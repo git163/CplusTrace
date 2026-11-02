@@ -163,8 +163,7 @@ OUT_DIR=/tmp/release ./scripts/package.sh
 ```
 
 常用环境变量：`PORT`（默认 18428）、`LISTEN_HOST`（默认 `0.0.0.0`，
-局域网可访问）、`VMON_TOKEN`（默认 dev-token，**局域网请改成强随机串**）、
-`VMON_HOME`（默认 `.vmon-run`）、`NODE_NAME`、`PROCESS_FILTER`、`LAN_IP`。
+局域网可访问）、`VMON_HOME`（默认 `.vmon-run`）、`NODE_NAME`、`PROCESS_FILTER`、`LAN_IP`。
 `up` 会同时打印局域网地址（自动探测本机 IP）和本机 127.0.0.1 地址。
 脚本只操作自己 PID 文件里的进程，不会按进程名误杀。运行目录下有
 `server.log`、`agent.log`、`server/`、`agent/`（WAL 与状态）。
@@ -199,13 +198,12 @@ python3 examples/scenarios/demo.py --scenario all --keep
 
 ```bash
 # 终端 1：中心服务
-./build/vmon_server --listen-host 127.0.0.1 --port 18428 \
-  --token dev-token --state-dir /tmp/vmon-server-state --no-forward
+./build/vmon_server --listen-host 127.0.0.1 --port 18428 \ --state-dir /tmp/vmon-server-state --no-forward
 
 # 终端 2：Agent
 ./build/vmon_agent --server-url http://127.0.0.1:18428 \
   --uds /tmp/vmon-agent.sock --state-dir /tmp/vmon-agent-state \
-  --node node-1 --token dev-token --scan-interval-ms 2000
+  --node node-1 --scan-interval-ms 2000
 
 # 终端 3：示例业务进程（SDK 已初始化；设置 request_id 后产生 span/日志）
 VMON_AGENT_ENDPOINT=/tmp/vmon-agent.sock ./build/examples/hello/vmon_hello
@@ -214,11 +212,11 @@ VMON_AGENT_ENDPOINT=/tmp/vmon-agent.sock ./build/examples/hello/vmon_hello
 查询：
 
 ```bash
-curl -s -H 'X-Vmon-Token: dev-token' \
+curl -s \
   'http://127.0.0.1:18428/api/logs?limit=20'
-curl -s -H 'X-Vmon-Token: dev-token' \
+curl -s \
   'http://127.0.0.1:18428/api/traces?limit=20'
-./build/tools/vmonctl --server http://127.0.0.1:18428 --token dev-token overview
+./build/tools/vmonctl --server http://127.0.0.1:18428 overview
 ```
 
 浏览器打开 `http://<中心IP>:18428/` 使用 Web UI（局域网其他机器可访问；
@@ -270,7 +268,7 @@ Python / Web 客户端也可以成为 trace 起点：
 ```python
 from vmon_trace import Client
 
-client = Client("http://127.0.0.1:18428", "dev-token",
+client = Client("http://127.0.0.1:18428",
                 service="py-bff", node="node-1")
 with client.span("GET /orders", request_id="REQ-1"):
     client.request("GET", "http://backend:9000/api/orders",
@@ -316,7 +314,7 @@ client.close()
 | `POST /api/evidence` | 生成脱敏证据包 |
 | `POST /mcp` | MCP JSON-RPC（内部版） |
 
-除 `/api/health` 外均需 `X-Vmon-Token` 或 `Authorization: Bearer <token>`。
+当前不启用令牌鉴权，所有 API 可直接访问；请仅部署在内网，并用防火墙限制访问网段。
 
 ## 6. 目录结构
 

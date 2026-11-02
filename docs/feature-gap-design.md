@@ -225,7 +225,7 @@ cooldown_ns/severity/enabled`；保留「高级 JSON」作为兜底。表单提�
 
 | # | 场景 | 关键断言 |
 |---|---|---|
-| 1 | 健康检查与鉴权 | `/api/health` 200；无 token 401；静态 `index.html`/`app.js` 200 |
+| 1 | 健康检查与静态资源 | `/api/health` 200；无 token 可访问业务 API；静态 `index.html`/`app.js` 200 |
 | 2 | 主链路 | request_id 可查 trace + 日志；span/depth/关键路径/首个错误 |
 | 3 | 查询条件 | trace_id、request_id、task_id、service、error、min_duration；日志 trace/request/task/service/node/level/text/errors_only |
 | 4 | 跨进程链路 | 父进程导出 trace/span，子进程用 `create_span_with_parent`；同一 trace 含两个服务；拓扑出现父子边 |
@@ -249,7 +249,7 @@ cooldown_ns/severity/enabled`；保留「高级 JSON」作为兜底。表单提�
 - 调用链：列表、错误过滤、最小耗时、详情、瀑布图；
 - 日志：各过滤器、错误开关、聚类下钻与清除；
 - 服务/节点/事件/崩溃/剖析/指标/诊断/规则/拓扑/SLO；
-- 令牌保存与 401 提示；
+- 无需令牌（当前版本已移除鉴权）；
 - 所有按钮点击后无 JS 未捕获异常。
 
 ### 6.3 单元测试

@@ -3,7 +3,6 @@
   "use strict";
 
   const state = {
-    token: localStorage.getItem("vmon-token") || "",
     view: "overview",
     overviewTimer: null,
     selectedTrace: "",
@@ -31,7 +30,6 @@
   async function api(path, options) {
     const opts = options || {};
     const headers = Object.assign({}, opts.headers || {});
-    if (state.token) headers["X-Vmon-Token"] = state.token;
     if (opts.json !== undefined) {
       headers["Content-Type"] = "application/json";
       opts.body = JSON.stringify(opts.json);
@@ -2105,14 +2103,6 @@
   }
 
   function init() {
-    $("token").value = state.token;
-    $("save-token").addEventListener("click", () => {
-      state.token = $("token").value.trim();
-      localStorage.setItem("vmon-token", state.token);
-      toast("令牌已保存");
-      showView(state.view);
-    });
-
     $("nav").addEventListener("click", (event) => {
       const button = event.target.closest("button[data-view]");
       if (button) location.hash = button.getAttribute("data-view");

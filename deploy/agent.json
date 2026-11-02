@@ -3,7 +3,6 @@
   "listen_uds": "/run/vmon/agent.sock",
   "state_dir": "/var/lib/vmon-agent",
   "node": "",
-  "token": "CHANGE_ME",
   "control_dir": "/run/vmon/ctrl",
   "crash_dir": "/var/lib/vmon-crash",
   "scan_interval_ms": 2000,

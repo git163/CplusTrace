@@ -37,7 +37,6 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 sys.path.insert(0, os.path.join(ROOT, "clients", "python"))
 import vmon_trace  # noqa: E402
 
-TOKEN = "demo-token"
 NODE = "demo-node"
 
 
@@ -111,7 +110,7 @@ class Stack(object):
         self.handles = [server_log, agent_log, backend_log]
         self.server = subprocess.Popen(
             [self.binary("vmon_server"), "--listen-host", "127.0.0.1",
-             "--port", str(self.server_port), "--token", TOKEN,
+             "--port", str(self.server_port),
              "--state-dir", self.server_dir,
              "--web-dir", os.path.join(ROOT, "web"), "--no-forward"],
             stdout=server_log, stderr=subprocess.STDOUT)
@@ -120,7 +119,7 @@ class Stack(object):
         self.agent = subprocess.Popen(
             [self.binary("vmon_agent"), "--server-url", self.base_url,
              "--uds", self.uds, "--state-dir", self.agent_dir,
-             "--node", NODE, "--token", TOKEN,
+             "--node", NODE,
              "--control-dir", self.control_dir,
              "--crash-dir", self.crash_dir,
              "--command-interval-ms", "100",
@@ -139,7 +138,6 @@ class Stack(object):
         wait_for(lambda: self.get("/health", base=self.backend_url)[0] == 200,
                  15, "HTTP 后端启动")
         log("[demo] Server : %s/" % self.base_url)
-        log("[demo] 令牌   : %s" % TOKEN)
         log("[demo] 后端   : %s/api/echo" % self.backend_url)
         log("[demo] 工作目录: %s" % self.work_dir)
 
@@ -158,7 +156,7 @@ class Stack(object):
 
     def api(self, method, path, body=None, timeout=10):
         data = None
-        headers = {"X-Vmon-Token": TOKEN}
+        headers = {}
         if body is not None:
             data = json.dumps(body).encode("utf-8")
             headers["Content-Type"] = "application/json"
@@ -271,12 +269,12 @@ def print_trace(detail, show_logs=True):
 def print_hint(stack, request_id, title):
     log("  看这里：")
     if stack.keep:
-        log("    Web   : %s/  （令牌 %s）" % (stack.base_url, TOKEN))
+        log("    Web   : %s/" % stack.base_url)
     else:
         log("    Web   : 栈已停止；加 --keep 可保留并打开 Web UI")
     log("    调用链: 搜索 %s" % request_id)
-    log("    CLI   : ./build/tools/vmonctl --server %s --token %s "
-        "traces --request %s" % (stack.base_url, TOKEN, request_id))
+    log("    CLI   : ./build/tools/vmonctl --server %s traces --request %s"
+        % (stack.base_url, request_id))
     log("  场景  : %s" % title)
 
 
@@ -287,7 +285,7 @@ def new_ids(prefix):
 
 def make_client(stack):
     return vmon_trace.Client(
-        stack.base_url, TOKEN, service="demo-python", instance="py-demo",
+        stack.base_url, service="demo-python", instance="py-demo",
         node=NODE, flush_interval=0.1)
 
 
@@ -484,8 +482,7 @@ def main():
             SCENARIOS[args.scenario](stack)
         log("\n[demo] 场景执行完毕。")
         if stack.keep:
-            log("[demo] 栈保持运行：%s/（令牌 %s）；Ctrl+C 结束"
-                % (stack.base_url, TOKEN))
+            log("[demo] 栈保持运行：%s/；Ctrl+C 结束" % stack.base_url)
             while True:
                 time.sleep(1)
     except KeyboardInterrupt:

@@ -28,12 +28,12 @@ ctest --test-dir build --output-on-failure
 最近一次结果（加入 Python/Web 客户端与 HTTP 后端后）：
 
 ```
-1/6 Test #1: vmon_e2e ............   Passed  19.21 sec
+1/6 Test #1: vmon_e2e ............   Passed  19.03 sec
 2/6 Test #2: vmon_python_client ...   Passed   0.58 sec
 3/6 Test #3: vmon_web_client ......   Passed   0.05 sec
 4/6 Test #4: vmon_sdk_tests .......   Passed   0.00 sec
 5/6 Test #5: vmon_server_tests ....   Passed   0.05 sec
-6/6 Test #6: vmon_agent_tests .....   Passed   2.38 sec
+6/6 Test #6: vmon_agent_tests .....   Passed   2.37 sec
 
 100% tests passed, 0 tests failed out of 6
 ```
@@ -52,7 +52,7 @@ Web UI 17 个视图的真实浏览器回归记录见 [ui-test-report.md](ui-test
 |---|---|---|
 | 1 | 请求链路 | `/api/requests/{request_id}` 返回完整 trace：span 数 ≥ 3、深度 ≥ 2、有根节点与关键路径、包含业务服务 Span；日志按 request_id 关联且包含错误日志 |
 | 2 | 查询条件 | trace 按 trace_id / request_id / task_id / service / 统一搜索 `q` / 仅错误 / 最小耗时；日志按 trace/request/task/service/node/level/text/仅错误；服务视图含 QPS/错误率/P95 |
-| 3 | HTTP 表面 | `/api/health` 200；无令牌 `/api/overview` 401；`/`、`/app.js`、`/style.css` 可访问；不存在 trace 返回 404 |
+| 3 | HTTP 表面 | `/api/health` 200；无令牌 `/api/overview` 200；`/`、`/app.js`、`/style.css` 可访问；不存在 trace 返回 404 |
 | 4 | 指标 | `host.load1` 带 node 标签；内存/进程数/uptime 可查；`process.rss_bytes` 带 process 标签、值 > 0，且不得携带 service 标签（回归） |
 | 5 | 动态日志级别 | 命令前无 debug 日志；`POST /api/control/log-level` 后命令 `done`，业务进程确认 `debug`；中心收到 `e2e debug tick` 且聚类模板可见 |
 | 6 | MCP 基础 | `tools/list` 返回工具列表；`tools/call get_request_chain` 返回对应 trace |
@@ -119,7 +119,7 @@ python3 examples/scenarios/demo.py --scenario all
 
 ## 4. 已核验的安全/降级行为
 
-- 无 token / 错误 token 返回 401；`/api/health` 保持公开；
+- 当前版本已移除令牌鉴权，所有 API 可直接访问；仅依赖内网与防火墙；
 - SDK 未初始化、初始化失败、Agent 不在线时业务继续运行；
 - 队列满丢弃事件并计数，不阻塞业务线程；
 - 诊断命令白名单拒绝 `passwd` 等非白名单操作；

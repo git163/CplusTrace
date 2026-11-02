@@ -89,7 +89,7 @@ int main(int argc, char** argv) {
   app.add_option("--uds", config.listen_uds, "SDK 接入的 Unix Socket 路径");
   app.add_option("--state-dir", config.state_dir, "本地状态与 WAL 目录");
   app.add_option("--node", config.node, "节点名，默认取主机名");
-  app.add_option("--token", config.token, "访问中心服务的令牌");
+  app.add_option("--token", config.token, "已废弃：兼容旧脚本，当前不鉴权");
   app.add_option("--control-dir", config.control_dir,
                  "SDK 控制套接字目录，默认 /tmp/vmon-ctrl");
   app.add_option("--crash-dir", config.crash_dir,

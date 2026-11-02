@@ -73,7 +73,7 @@ cmake --build build -j
 
 # 方式 A：只起栈
 ./scripts/vmon.sh up
-# Web UI: http://127.0.0.1:18428/  令牌: dev-token
+# Web UI: http://127.0.0.1:18428/
 
 # 方式 B：一条命令起栈 + 造场景 + 打印看点和 request_id
 python3 examples/scenarios/demo.py --scenario rpc --keep
@@ -116,7 +116,7 @@ Python：
 ```python
 from vmon_trace import Client
 
-client = Client("http://127.0.0.1:18428", "dev-token",
+client = Client("http://127.0.0.1:18428",
                 service="py-bff", node="node-1")
 with client.span("GET /orders", request_id="REQ-1") as span:
     status, body = client.request(
@@ -150,29 +150,28 @@ const tracedFetch = vmonTrace.instrumentFetch(window.fetch, {
 
 ```bash
 BASE=http://127.0.0.1:18428
-TOKEN=dev-token
 
 # 按业务请求号找 trace
-curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/requests/REQ-1"
+curl -s "$BASE/api/requests/REQ-1"
 
 # 只看错误 / 最慢
-curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/traces?error=1&min_duration_ns=500000000"
+curl -s "$BASE/api/traces?error=1&min_duration_ns=500000000"
 
 # 一键诊断
-curl -s -H "X-Vmon-Token: $TOKEN" -H 'Content-Type: application/json' \
+curl -s -H 'Content-Type: application/json' \
   -d '{"request_id":"REQ-1"}' "$BASE/api/diagnose"
 
 # 生成证据包
-curl -s -H "X-Vmon-Token: $TOKEN" -H 'Content-Type: application/json' \
+curl -s -H 'Content-Type: application/json' \
   -d '{"incident":"INC-001","request_id":"REQ-1"}' "$BASE/api/evidence"
 ```
 
 CLI：
 
 ```bash
-./build/tools/vmonctl --server "$BASE" --token "$TOKEN" \
+./build/tools/vmonctl --server "$BASE" \
   traces --request REQ-1 --error
-./build/tools/vmonctl --server "$BASE" --token "$TOKEN" \
+./build/tools/vmonctl --server "$BASE" \
   diagnose --request REQ-1
 ```
 
@@ -303,7 +302,7 @@ flowchart LR
 ingest 收到一行 -> wal.append(line)
   -> 当前段累计 >= wal_segment_bytes 或超过 1s 且有数据 -> 封存
   -> uploader 每 upload_interval_ms 读取封存段
-      -> POST /v1/ingest（NDJSON + token）
+      -> POST /v1/ingest（NDJSON）
       -> 成功删除段；失败保留，下一轮重试
   -> 总容量超过 wal_max_bytes -> 删除最旧段（优先保错误/崩溃）
 ```
@@ -431,7 +430,7 @@ GET /api/traces/{id}
 | `<uds>` | SDK → Agent | JSONL over UDS | 事件上报 |
 | `<control_dir>/<pid>.sock` | Agent → SDK | 单行 JSON | 控制命令 |
 | `<crash_dir>/crash-<pid>.json` | SDK → Agent | 文件 | 崩溃报告 |
-| `POST /v1/ingest` | Agent/Python → Server | NDJSON + token | 事件接入 |
+| `POST /v1/ingest` | Agent/Python → Server | NDJSON | 事件接入 |
 | `POST /v1/crash` | Agent → Server | JSON | 崩溃上报 |
 | `POST /v1/profile` | Agent → Server | 折叠栈 | 剖析上报 |
 | `GET /api/*` | Web/CLI/MCP → Server | JSON | 只读查询（含 `/api/error-codes`） |

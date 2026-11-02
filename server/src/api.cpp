@@ -67,10 +67,11 @@ void send_error(httplib::Response& res, int status, const std::string& message) 
 }
 
 bool authorized(const httplib::Request& req, const ServerConfig& config) {
-  if (config.token.empty()) return true;
-  const std::string bearer = req.get_header_value("Authorization");
-  if (bearer == "Bearer " + config.token) return true;
-  return req.get_header_value("X-Vmon-Token") == config.token;
+  // 令牌鉴权已移除：仅依赖内网边界与防火墙。`--token` 仍被接受，
+  // 但不再影响访问控制，保留是为了兼容旧启动脚本。
+  (void)req;
+  (void)config;
+  return true;
 }
 
 std::string param(const httplib::Request& req, const char* name,

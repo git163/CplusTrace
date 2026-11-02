@@ -12,7 +12,6 @@
 # 常用环境变量：
 #   PORT=18428          监听的 HTTP 端口
 #   LISTEN_HOST=0.0.0.0 监听地址（默认所有网卡，局域网可访问）
-#   VMON_TOKEN=dev-token 访问令牌（局域网使用请改成强随机串）
 #   VMON_HOME=.vmon-run  运行目录（PID、日志、WAL、状态文件）
 #   NODE_NAME=...        节点名，默认主机名
 #   LAN_IP=...           对外展示的局域网 IP，默认自动探测
@@ -29,7 +28,6 @@ AGENT_BIN=${AGENT_BIN:-"$BUILD/vmon_agent"}
 
 RUN_DIR=${VMON_HOME:-"$ROOT/.vmon-run"}
 PORT=${PORT:-18428}
-TOKEN=${VMON_TOKEN:-dev-token}
 HOST=${LISTEN_HOST:-0.0.0.0}
 CONNECT_HOST=${CONNECT_HOST:-127.0.0.1}
 NODE=${NODE_NAME:-$(hostname -s 2>/dev/null || hostname)}
@@ -127,7 +125,7 @@ start_server() {
   mkdir -p "$RUN_DIR" "$SERVER_STATE"
   log "启动 Server：监听 $HOST:${PORT}，Web UI $PUBLIC_URL/"
   nohup "$SERVER_BIN" \
-    --listen-host "$HOST" --port "$PORT" --token "$TOKEN" \
+    --listen-host "$HOST" --port "$PORT" \
     --state-dir "$SERVER_STATE" --web-dir "$ROOT/web" \
     --no-forward >"$SERVER_LOG" 2>&1 &
   echo $! >"$SERVER_PID_FILE"
@@ -150,7 +148,7 @@ start_agent() {
     --uds "$UDS"
     --state-dir "$AGENT_STATE"
     --node "$NODE"
-    --token "$TOKEN"
+   
     --control-dir "$CTRL_DIR"
     --crash-dir "$CRASH_DIR"
     --scan-interval-ms 2000
@@ -201,7 +199,6 @@ cmd_up() {
 [vmon] 已启动
   Web UI : $PUBLIC_URL/   （局域网）
             http://127.0.0.1:$PORT/   （本机）
-  令牌   : $TOKEN
   UDS    : $UDS
   日志   : $SERVER_LOG
            $AGENT_LOG
@@ -243,7 +240,7 @@ cmd_status() {
     log "Agent   : 未运行"
     ok=1
   fi
-  log "Web UI  : $PUBLIC_URL/（本机 http://127.0.0.1:$PORT/，令牌 ${TOKEN}）"
+  log "Web UI  : $PUBLIC_URL/（本机 http://127.0.0.1:$PORT/）"
   log "运行目录: $RUN_DIR"
   return "$ok"
 }

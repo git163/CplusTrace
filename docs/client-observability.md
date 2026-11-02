@@ -56,7 +56,7 @@ client span、记录状态码与耗时，并可选把少量事件发到 BFF 或 
 
 浏览器直接向 `vmon-server` 写数据有三个问题：
 
-1. token 会暴露在浏览器，写接口可被滥用；
+1. 浏览器直连写接口会绕过 BFF 的限流、采样与边界控制；
 2. CORS 与内网策略复杂；
 3. 前端日志噪音大，容易污染错误优先的治理策略。
 
@@ -93,7 +93,7 @@ BFF 已经在内网、已有会话鉴权，由它统一注入上下文，最安�
 ## 4. 不建议做的事
 
 - **不要把业务逻辑或数据组装放到前端**：维测只“观察”，不参与业务决策；
-- **不要让浏览器持有中心写 token**：写入口只开给 BFF/Agent；
+- **不要让浏览器直连中心写接口**：写入口只开给 BFF/Agent；
 - **不要为 Python 重造一套完整 SDK**：先传播，再按需补 client span；
 - **不要全量采集前端日志**：只保留错误、慢请求和关键操作，且必须采样；
 - **不要改变现有 API 语义**：header 缺失时后端照常工作，链路从后端根 Span 开始。
@@ -114,7 +114,7 @@ Python：
 ```python
 from vmon_trace import Client
 
-client = Client("http://127.0.0.1:18428", "dev-token",
+client = Client("http://127.0.0.1:18428",
                 service="py-bff", node="node-1")
 with client.span("GET /orders", request_id="REQ-1") as span:
     status, body = client.request(
@@ -154,7 +154,7 @@ const tracedFetch = vmonTrace.instrumentFetch(window.fetch, {
    server span → 下游服务；
 2. `request_id`、`task_id`、错误码在两侧一致，日志可按同一 request 查询；
 3. header 缺失、格式错误、中心不可用时，Python/前端业务不受影响；
-4. 浏览器不直接持有中心写 token；
+4. 浏览器不直接调用中心写接口；
 5. 前端事件默认关闭或低采样，不改变后端日志治理策略。
 
 ## 7. 对现有架构的影响

@@ -15,7 +15,7 @@ struct ServerConfig {
   int listen_port = 18428;
   std::string web_dir;              // Web UI 静态资源目录
   std::string state_dir = "./vmon-data";
-  std::string token;                // 为空表示不鉴权（仅建议内网使用）
+  std::string token;                // 已废弃：当前不鉴权，保留兼容旧配置
 
   size_t max_traces = 20000;
   size_t max_log_records = 200000;

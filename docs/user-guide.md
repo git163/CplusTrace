@@ -24,11 +24,10 @@
 - 局域网：`http://<本机IP>:18428/`（其他机器可访问）；
 - 本机：`http://127.0.0.1:18428/`。
 
-默认监听 `0.0.0.0`，令牌 `dev-token`。**给局域网使用时务必改成强随机令牌**：
+默认监听 `0.0.0.0`，**不再需要令牌**。给局域网使用时仍建议用防火墙限制访问网段：
 
 ```bash
-PORT=19428 VMON_TOKEN="$(openssl rand -hex 16)" VMON_HOME=/tmp/vmon \
-  ./scripts/vmon.sh up
+PORT=19428 VMON_HOME=/tmp/vmon ./scripts/vmon.sh up
 ```
 
 只允许本机访问时设置 `LISTEN_HOST=127.0.0.1`；服务器有防火墙时需放行
@@ -44,10 +43,12 @@ PORT=19428 VMON_TOKEN="$(openssl rand -hex 16)" VMON_HOME=/tmp/vmon \
 python3 examples/scenarios/demo.py --scenario all --keep
 ```
 
-`--keep` 会保留栈，脚本打印 Web UI 地址、令牌、trace_id、request_id 和
+`--keep` 会保留栈，脚本打印 Web UI 地址、trace_id、request_id 和
 CLI 命令；按 Ctrl+C 结束。
 
 ### 1.3 打开总览
+
+> 截图采集于令牌功能移除前，右上角令牌框在当前版本已移除，无需填写令牌。
 
 ![运行总览](../examples/screenshots/01-overview.png)
 
@@ -79,9 +80,8 @@ CLI 命令；按 Ctrl+C 结束。
 5. 需要复盘/交接时，生成证据包（脱敏 + SHA-256）。
 
 ```bash
-BASE=http://127.0.0.1:18428; TOKEN=dev-token
-curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/requests/REQ-1"
-curl -s -H "X-Vmon-Token: $TOKEN" -H 'Content-Type: application/json' \
+BASE=http://127.0.0.1:18428; curl -s "$BASE/api/requests/REQ-1"
+curl -s -H 'Content-Type: application/json' \
   -d '{"request_id":"REQ-1"}' "$BASE/api/diagnose"
 ```
 
@@ -110,9 +110,9 @@ curl -s -H "X-Vmon-Token: $TOKEN" -H 'Content-Type: application/json' \
 ![日志聚类](../examples/screenshots/07-clusters.png)
 
 ```bash
-curl -s -H "X-Vmon-Token: $TOKEN" \
+curl -s \
   "$BASE/api/logs?request_id=REQ-1&errors_only=1&limit=50"
-curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/logs/clusters?limit=20"
+curl -s "$BASE/api/logs/clusters?limit=20"
 ```
 
 ### 2.3.1 错误码横向定位：同一错误码跨多链路
@@ -129,8 +129,8 @@ curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/logs/clusters?limit=20"
 - API：
 
 ```bash
-curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/error-codes?limit=100"
-curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/traces?error_code=E_ECHO"
+curl -s "$BASE/api/error-codes?limit=100"
+curl -s "$BASE/api/traces?error_code=E_ECHO"
 ```
 
 `q` 搜索也会匹配错误码，例如 `q=e_echo`。
@@ -146,8 +146,8 @@ curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/traces?error_code=E_ECHO"
 - API：
 
 ```bash
-curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/issues?status=open"
-curl -s -H "X-Vmon-Token: $TOKEN" -H 'Content-Type: application/json' \
+curl -s "$BASE/api/issues?status=open"
+curl -s -H 'Content-Type: application/json' \
   -d '{"status":"ack","assignee":"alice","note":"排查中"}' \
   "$BASE/api/issues/<id>"
 ```
@@ -164,7 +164,7 @@ curl -s -H "X-Vmon-Token: $TOKEN" -H 'Content-Type: application/json' \
 ![规则与静默](../examples/screenshots/12-rules.png)
 
 ```bash
-curl -s -H "X-Vmon-Token: $TOKEN" -H 'Content-Type: application/json' \
+curl -s -H 'Content-Type: application/json' \
   -d '{"name":"发布窗口","service":"order","duration_minutes":30,"reason":"升级"}' \
   "$BASE/api/silences"
 ```
@@ -182,7 +182,7 @@ vmon_agent ... --probe \
 总览「可用性拨测」显示 UP/DOWN，指标页可按名字查询，规则可基于 `probe.up` 配置。
 
 ```bash
-curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/probes"
+curl -s "$BASE/api/probes"
 ```
 
 ### 2.7 影响面：服务拓扑
@@ -211,13 +211,13 @@ curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/probes"
 「生成快照」保存只读数据，便于复盘或分享。
 
 ```bash
-curl -s -H "X-Vmon-Token: $TOKEN" -H 'Content-Type: application/json' \
+curl -s -H 'Content-Type: application/json' \
   -d '{"id":"dash-1","name":"值班看板","widgets":[
        {"type":"metric","title":"负载","metric":"host.load1"},
        {"type":"traces","title":"链路"},
        {"type":"logs","title":"错误模板","limit":5}]}' \
   "$BASE/api/dashboards"
-curl -s -X POST -H "X-Vmon-Token: $TOKEN" \
+curl -s -X POST \
   "$BASE/api/dashboards/dash-1/snapshot"
 ```
 
@@ -261,10 +261,10 @@ curl -s -X POST -H "X-Vmon-Token: $TOKEN" \
 
 ```bash
 # 抓全线程栈（只读）
-curl -s -H "X-Vmon-Token: $TOKEN" -H 'Content-Type: application/json'   -d '{"node":"node-a","pid":1234}' "$BASE/api/control/dump-stacks"
+curl -s -H 'Content-Type: application/json'   -d '{"node":"node-a","pid":1234}' "$BASE/api/control/dump-stacks"
 
 # 临时 debug 日志（带 TTL，到期自动恢复）
-curl -s -H "X-Vmon-Token: $TOKEN" -H 'Content-Type: application/json'   -d '{"service":"order","level":"debug","ttl_ms":60000}'   "$BASE/api/control/log-level"
+curl -s -H 'Content-Type: application/json'   -d '{"service":"order","level":"debug","ttl_ms":60000}'   "$BASE/api/control/log-level"
 ```
 
 重启/回滚等有风险动作只作为建议，由人确认后在平台侧执行；证据包用于复盘。
@@ -276,7 +276,6 @@ curl -s -H "X-Vmon-Token: $TOKEN" -H 'Content-Type: application/json'   -d '{"se
 
 ```bash
 BASE=http://127.0.0.1:<脚本打印的端口>
-TOKEN=demo-token
 ```
 
 > 所有带 `--keep` 的 demo 请在终端 A 保持运行，下面的 curl/查询在终端 B 执行；
@@ -311,7 +310,7 @@ duration   = 16.3 ms
 **第 1 步：按 request_id 收口**
 
 ```bash
-curl -s -H "X-Vmon-Token: demo-token" \
+curl -s \
   "$BASE/api/requests/demo-error-1793575660233"
 ```
 
@@ -360,7 +359,7 @@ info   http backend handled request_id=demo-error-1793575660233
 **第 4 步：一键诊断**
 
 ```bash
-curl -s -H "X-Vmon-Token: demo-token" -H 'Content-Type: application/json' \
+curl -s -H 'Content-Type: application/json' \
   -d '{"request_id":"demo-error-1793575660233"}' \
   "$BASE/api/diagnose"
 ```
@@ -380,7 +379,7 @@ curl -s -H "X-Vmon-Token: demo-token" -H 'Content-Type: application/json' \
 **第 5 步：生成证据包**
 
 ```bash
-curl -s -H "X-Vmon-Token: demo-token" -H 'Content-Type: application/json' \
+curl -s -H 'Content-Type: application/json' \
   -d '{"incident":"INC-DEMO-001","request_id":"demo-error-1793575660233"}' \
   "$BASE/api/evidence"
 ```
@@ -418,7 +417,7 @@ curl -s -H "X-Vmon-Token: demo-token" -H 'Content-Type: application/json' \
 处理：
 
 ```bash
-curl -s -H "X-Vmon-Token: demo-token" -H 'Content-Type: application/json' \
+curl -s -H 'Content-Type: application/json' \
   -d '{"status":"ack","assignee":"alice","note":"排查中"}' \
   "$BASE/api/issues/<issue_id>"
 ```
@@ -477,7 +476,7 @@ vmon_agent ... --probe \
 正常时：
 
 ```bash
-curl -s -H "X-Vmon-Token: demo-token" \
+curl -s \
   "$BASE/api/probes"
 ```
 
@@ -521,7 +520,7 @@ python3 examples/scenarios/demo.py --scenario all --keep
 创建仪表板：
 
 ```bash
-curl -s -H "X-Vmon-Token: demo-token" -H 'Content-Type: application/json' \
+curl -s -H 'Content-Type: application/json' \
   -d '{"id":"dash-1","name":"值班看板","widgets":[
        {"type":"metric","title":"负载","metric":"host.load1"},
        {"type":"traces","title":"链路"},
@@ -534,7 +533,7 @@ curl -s -H "X-Vmon-Token: demo-token" -H 'Content-Type: application/json' \
 「生成快照」后：
 
 ```bash
-curl -s -X POST -H "X-Vmon-Token: demo-token" \
+curl -s -X POST \
   "$BASE/api/dashboards/dash-1/snapshot"
 ```
 
@@ -600,7 +599,7 @@ L0 只部署 Agent；L1 接 SDK/日志宏；L2 在关键函数加 `VMON_SPAN`。
 ```python
 from vmon_trace import Client
 
-client = Client("http://127.0.0.1:18428", "dev-token",
+client = Client("http://127.0.0.1:18428",
                 service="py-bff", node="node-1")
 with client.span("GET /orders", request_id="REQ-1"):
     client.request("GET", "http://backend:9000/api/orders",
@@ -617,43 +616,43 @@ client.close()
 
 ```bash
 # 调用链统一搜索
-curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/traces?q=REQ-1"
+curl -s "$BASE/api/traces?q=REQ-1"
 # 仅错误 + 最慢（耗时纳秒）
-curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/traces?error=1&min_duration_ns=500000000"
+curl -s "$BASE/api/traces?error=1&min_duration_ns=500000000"
 # 日志
-curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/logs?request_id=REQ-1&errors_only=1"
+curl -s "$BASE/api/logs?request_id=REQ-1&errors_only=1"
 # 指标 / 拨测 / 异常 / 仪表板 / 静默
-curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/metrics?name=host.load1"
-curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/probes"
-curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/issues?status=open"
-curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/dashboards"
-curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/silences"
+curl -s "$BASE/api/metrics?name=host.load1"
+curl -s "$BASE/api/probes"
+curl -s "$BASE/api/issues?status=open"
+curl -s "$BASE/api/dashboards"
+curl -s "$BASE/api/silences"
 ```
 
 CLI：
 
 ```bash
-vmonctl --server "$BASE" --token "$TOKEN" overview
-vmonctl --server "$BASE" --token "$TOKEN" traces --request REQ-1 --error
-vmonctl --server "$BASE" --token "$TOKEN" trace <trace_id>
-vmonctl --server "$BASE" --token "$TOKEN" logs --text timeout
-vmonctl --server "$BASE" --token "$TOKEN" diagnose --request REQ-1
-vmonctl --server "$BASE" --token "$TOKEN" evidence --incident INC-001 --request REQ-1
-vmonctl --server "$BASE" --token "$TOKEN" log-level --service order --level debug --ttl 60000
+vmonctl --server "$BASE" overview
+vmonctl --server "$BASE" traces --request REQ-1 --error
+vmonctl --server "$BASE" trace <trace_id>
+vmonctl --server "$BASE" logs --text timeout
+vmonctl --server "$BASE" diagnose --request REQ-1
+vmonctl --server "$BASE" evidence --incident INC-001 --request REQ-1
+vmonctl --server "$BASE" log-level --service order --level debug --ttl 60000
 ```
 
 MCP（内部只读）：
 
 ```json
 {"mcpServers":{"vmon":{"command":"/opt/vmon/bin/vmon_mcp",
- "args":["--server","http://127.0.0.1:18428","--token","<token>"]}}}
+ "args":["--server","http://127.0.0.1:18428"]}}}
 ```
 
 ## 7. 常见问题
 
 | 现象 | 原因与处理 |
 |---|---|
-| 页面全是「未授权」 | 左上角令牌与服务端 `--token` 不一致 |
+| 页面全是「未授权」 | 旧版本残留；当前版本已移除令牌鉴权，刷新页面即可 |
 | 局域网其他机器打不开 | 确认 `LISTEN_HOST=0.0.0.0`、防火墙放行端口、机器在同一网段；用 `./scripts/vmon.sh status` 看监听与健康检查 |
 | 调用链为空 | 业务未初始化 SDK、Agent 未启动或 UDS 路径不一致 |
 | 有 trace 没日志 | 日志未走 vmon 宏，或未带 request_id/trace_id |

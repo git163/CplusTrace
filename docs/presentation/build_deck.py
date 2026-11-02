@@ -1266,7 +1266,7 @@ def slide_clients(prs, n):
     add_footer(slide, n)
     slide.notes_slide.notes_text_frame.text = (
         "上游不是盲区：Python/浏览器生成 trace 起点，后端用同一个 traceparent 续接。"
-        "浏览器只上报给 BFF，不直接持有中心写 token。")
+        "浏览器只上报给 BFF，不直接调用中心写接口。")
 
 
 def slide_client_detail(prs, n):
@@ -1387,8 +1387,7 @@ def slide_adoption(prs, n):
              bold=True, color=INK)
     add_code(slide, LEFT, 4.8, 6.2, 1.75,
              "$ ./scripts/vmon.sh up\n"
-             "Web UI: http://127.0.0.1:18428/\n"
-             "Token:  dev-token\n\n"
+             "Web UI: http://127.0.0.1:18428/\n\n"
              "$ ./scripts/vmon.sh status\n"
              "$ ./scripts/vmon.sh down")
     add_text(slide, 7.35, 4.42, 5.2, 0.3, "业务侧接入（L1）", size=13,

@@ -4,6 +4,7 @@
 > 环境：macOS 15.7.1 arm64；Chrome（Playwright MCP 驱动）；Server `127.0.0.1:18500`
 > 被测版本：本轮功能补齐后的 `vmon_server` + `vmon_agent` + 种子数据
 > 结论：14 个原始视图完成真实点击回归（新增异常、仪表板视图也已做交互验证）；发现并修复 3 个前端问题；无未捕获 JS 异常。
+> 注：令牌鉴权已在本轮之后移除，报告中的令牌相关步骤为历史记录，当前版本无需令牌。
 
 ## 1. 测试方法
 
@@ -15,7 +16,7 @@
 3. 用 Playwright MCP 打开 `http://127.0.0.1:18500/`，逐视图点击按钮、填写表单、
    提交查询，再用 `browser_evaluate` 读取 DOM 文本/SVG 数量做断言。
 4. 同一 URL 的 hash-only 跳转不会重新加载页面，测试统一用 `?v=N#view` 强制真实导航；
-   `127.0.0.1` 与 `localhost` 的 localStorage 相互隔离，令牌需在各自 origin 保存。
+   `127.0.0.1` 与 `localhost` 的 localStorage 相互隔离（历史令牌测试需在各自 origin 保存）。
 
 ## 2. 逐视图结果
 
@@ -43,8 +44,8 @@
 
 | 操作 | 结果 |
 |---|---|
-| 将 localStorage 令牌改为 `bad-token` 后刷新 | 页面不崩溃，toast 显示「未授权：请提供 X-Vmon-Token 或 Bearer Token」 |
-| 在页面输入正确令牌并点击「保存令牌」 | 令牌写入 localStorage，页面重新加载数据，toast「令牌已保存」 |
+| （历史）将 localStorage 令牌改为 `bad-token` 后刷新 | 当时页面不崩溃并提示未授权；当前版本已移除令牌，无需该步骤 |
+| （历史）在页面输入正确令牌并点击「保存令牌」 | 当时令牌写入 localStorage；当前版本已移除令牌输入框 |
 | 非法 SLO target | 服务端 400，页面显示中文错误信息，控制台仅记录该 400 请求 |
 
 ## 3. 发现并修复的问题

@@ -71,7 +71,6 @@ ctest --test-dir build --output-on-failure
 ```
 Web UI : http://192.168.1.3:18428/
           http://127.0.0.1:18428/
-令牌   : dev-token
 ```
 
 ### 3.3 造一条真实请求
@@ -106,8 +105,7 @@ python3 ../tests/e2e/run_e2e.py \
   --web-dir ../web --keep
 
 # CLI
-./build/tools/vmonctl --server http://127.0.0.1:18428 \
-  --token dev-token overview
+./build/tools/vmonctl --server http://127.0.0.1:18428 \ overview
 ```
 
 ## 4. 代码阅读顺序（重要）
@@ -184,7 +182,7 @@ python3 ../tests/e2e/run_e2e.py \
 |---|---|
 | 构建找不到头文件 | 确认 `third_party/src` 存在；不要用 `-DVMON_BUILD_TESTS=OFF` 排除 gtest 后又跑测试 |
 | E2E 端口冲突/超时 | 用 `--keep` 保留现场，看 `server.log`/`agent.log`；E2E 自动选空闲端口 |
-| Web 401 | 页面左上角令牌与服务端 `--token` 不一致 |
+| Web 无法访问 | 确认 `LISTEN_HOST=0.0.0.0`、防火墙放行端口、服务已启动 |
 | 局域网打不开 | `LISTEN_HOST=0.0.0.0`、防火墙放行端口、同一网段 |
 | Span 出现乱码/悬垂 | Span 名称、request_id 使用了局部 `std::string`；改用静态/长生命周期串 |
 | 日志只有 127 字节 | SDK 固定缓冲区截断，详细内容写文件日志或拆分字段 |

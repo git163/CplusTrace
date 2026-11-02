@@ -16,7 +16,7 @@ python3 examples/scenarios/demo.py --scenario <name> --keep
 ```
 
 脚本会启动真实 `vmon-server`、`vmon-agent` 和 `examples/http_backend`
-（使用真实 SDK 的 C++ HTTP 后端），打印 Web UI 地址、令牌、trace_id、
+（使用真实 SDK 的 C++ HTTP 后端），打印 Web UI 地址、trace_id、
 request_id 与 CLI 命令。
 
 | 场景 | 命令 | 重点 |
@@ -98,8 +98,8 @@ python3 examples/scenarios/demo.py --scenario error --keep
 **CLI**：
 
 ```bash
-./build/tools/vmonctl --server <url> --token <token> traces --request <id> --error
-./build/tools/vmonctl --server <url> --token <token> diagnose --request <id>
+./build/tools/vmonctl --server <url> traces --request <id> --error
+./build/tools/vmonctl --server <url> diagnose --request <id>
 ```
 
 ## 4. 日志风暴：模板聚类与降噪
@@ -151,11 +151,11 @@ python3 examples/scenarios/demo.py --scenario crash --keep
 
 ```bash
 # 异常：错误日志聚合为 Issue
-curl -s -H "X-Vmon-Token: demo-token" \
+curl -s \
   "http://127.0.0.1:<port>/api/issues?limit=10"
 
 # 静默：发布窗口内抑制规则事件
-curl -s -H "X-Vmon-Token: demo-token" -H 'Content-Type: application/json' \
+curl -s -H 'Content-Type: application/json' \
   -d '{"name":"发布窗口","service":"demo-python","duration_minutes":30}' \
   "http://127.0.0.1:<port>/api/silences"
 
@@ -164,7 +164,7 @@ vmon_agent ... --probe \
   'demo-api=http://127.0.0.1:19090/health;interval_ms=5000'
 
 # 仪表板：创建设置后打开 Web →「仪表板」，可生成只读快照
-curl -s -H "X-Vmon-Token: demo-token" -H 'Content-Type: application/json' \
+curl -s -H 'Content-Type: application/json' \
   -d '{"id":"dash-1","name":"值班看板","widgets":[
        {"type":"metric","title":"负载","metric":"host.load1"},
        {"type":"traces","title":"链路"},
@@ -196,7 +196,7 @@ VMON_CRASH_DIR=.vmon-run/crash \
 python3 - <<'PY'
 import sys; sys.path.insert(0, "clients/python")
 from vmon_trace import Client
-c = Client("http://127.0.0.1:18428", "dev-token", service="py-demo")
+c = Client("http://127.0.0.1:18428", service="py-demo")
 with c.span("Python/Manual", request_id="manual-1") as s:
     print(c.request("POST", "http://127.0.0.1:19090/api/echo",
                     body={"x": 1}, request_id="manual-1"))

@@ -26,7 +26,6 @@ python3 examples/scenarios/demo.py --scenario all --keep
 ```
 Web UI : http://<本机IP>:18428/   （局域网）
           http://127.0.0.1:18428/  （本机）
-令牌   : dev-token
 ```
 
 打开 Web UI，用脚本打印的 `request_id` 搜索，按这个顺序看：
@@ -43,7 +42,7 @@ Web UI : http://<本机IP>:18428/   （局域网）
 ctest --test-dir build -R vmon_e2e --output-on-failure
 ```
 
-> 局域网访问需防火墙放行端口，并把默认 `dev-token` 换成强随机串。
+> 局域网访问需防火墙放行端口；当前版本已移除令牌鉴权，只依赖内网边界。
 > 更详细的开发流程见 [onboarding.md](onboarding.md)，使用手册见 [user-guide.md](user-guide.md)。
 
 ## 1. 一句话架构

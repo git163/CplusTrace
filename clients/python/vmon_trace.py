@@ -198,7 +198,7 @@ class Client(object):
         self._local = threading.local()
         self._stop = threading.Event()
         self._worker = None
-        if self.enabled and self.server_url and self.token:
+        if self.enabled and self.server_url:
             self._worker = threading.Thread(
                 target=self._flush_loop, name="vmon-python-flush", daemon=True)
             self._worker.start()
@@ -376,7 +376,7 @@ class Client(object):
         self._enqueue(event)
 
     def _enqueue(self, event):
-        if not self.enabled or not self.server_url or not self.token:
+        if not self.enabled or not self.server_url:
             return
         try:
             self._queue.put_nowait(json.dumps(event, ensure_ascii=False))
@@ -385,7 +385,7 @@ class Client(object):
 
     def flush(self, timeout=5):
         """同步发送队列中的事件；失败不抛异常。"""
-        if not self.server_url or not self.token:
+        if not self.server_url:
             return True
         lines = []
         while True:
@@ -399,13 +399,14 @@ class Client(object):
         url = self.server_url + "/v1/ingest"
         if self.node:
             url += "?node=" + urllib.parse.quote(self.node)
+        headers = {
+            "Content-Type": "application/x-ndjson",
+            "X-Vmon-Agent": "python-client",
+        }
+        if self.token:
+            headers["X-Vmon-Token"] = self.token
         request = urllib.request.Request(
-            url, data=data, method="POST",
-            headers={
-                "Content-Type": "application/x-ndjson",
-                "X-Vmon-Token": self.token,
-                "X-Vmon-Agent": "python-client",
-            })
+            url, data=data, method="POST", headers=headers)
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
                 response.read()

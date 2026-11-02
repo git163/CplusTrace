@@ -85,7 +85,7 @@ sudo install -m 0640 deploy/agent.json  /etc/vmon/agent.json
 | 字段 | 说明 | 建议 |
 |---|---|---|
 | `listen_host` / `listen_port` | HTTP 监听地址 | 仅内网；默认 `18428` |
-| `token` | API / Agent 访问令牌 | 必填，随机长串；所有节点一致 |
+| `token` | 已废弃（兼容旧配置） | 当前不鉴权，留空即可 |
 | `state_dir` | 规则、SLO、静默、Issue、仪表板/快照、证据包目录 | `/var/lib/vmon-server` |
 | `max_traces` | 内存中保留的 trace 数 | 默认 20000 |
 | `max_log_records` | 内存日志条数上限 | 默认 200000 |
@@ -105,9 +105,9 @@ sudo install -m 0640 deploy/agent.json  /etc/vmon/agent.json
 - `listen_host` 设为 `0.0.0.0`（默认），节点/办公网通过
   `http://<中心IP>:18428/` 打开 Web UI；
 - 防火墙放行 TCP `18428`（或自定义端口），只允许内网网段；
-- 必须设置强随机 `token`，浏览器首次打开时填写；
-- 不要把端口映射到公网；当前无 TLS/RBAC，安全边界依赖内网与 token；
-- 反向代理/HTTPS 需自行在网关层终止 TLS，并保留 `X-Vmon-Token` 头。
+- 当前不启用令牌鉴权，浏览器打开即可使用；
+- 不要把端口映射到公网；当前无 TLS/RBAC，安全边界依赖内网与防火墙；
+- 反向代理/HTTPS 需自行在网关层终止 TLS；如需额外鉴权，应在网关层实现。
 
 启动与检查：
 
@@ -119,8 +119,7 @@ systemctl status vmon-server
 curl -s http://127.0.0.1:18428/api/health
 ```
 
-`/api/health` 不需要 token，仅返回计数与状态；其余查询与接入接口必须带
-`X-Vmon-Token: <token>` 或 `Authorization: Bearer <token>`。
+当前版本不启用令牌鉴权，所有接口可直接访问；只依赖内网和防火墙限制访问范围。
 
 ## 5. 节点 Agent 配置
 
@@ -132,7 +131,7 @@ curl -s http://127.0.0.1:18428/api/health
 | `listen_uds` | SDK 上报 UDS | `/run/vmon/agent.sock` |
 | `state_dir` | WAL 目录 | `/var/lib/vmon-agent` |
 | `node` | 节点名 | 留空自动取主机名；建议显式配置 |
-| `token` | 与中心一致 | 必填 |
+| `token` | 已废弃（兼容旧配置） | 当前不鉴权，留空即可 |
 | `control_dir` | SDK 控制 socket 目录 | `/run/vmon/ctrl` |
 | `crash_dir` | 崩溃报告交换目录 | `/var/lib/vmon-crash` |
 | `scan_interval_ms` | 进程/主机扫描周期 | 默认 2000 |
@@ -253,12 +252,11 @@ config.crash_report_dir = "/var/lib/vmon-crash";
 ```bash
 # 示例：仅上报元数据，core 仍由系统处理
 kernel.core_pattern = |/opt/vmon/bin/vmon_crash_helper \
-  --server http://127.0.0.1:18428 --token <token> \
+  --server http://127.0.0.1:18428 \
   --node "$HOSTNAME" --signal SIGSEGV --pid %p --binary %e
 
 # 或读取完整 JSON 报告
-/opt/vmon/bin/vmon_crash_helper --server http://127.0.0.1:18428 \
-  --token <token> --payload /path/to/crash.json
+/opt/vmon/bin/vmon_crash_helper --server http://127.0.0.1:18428 \ --payload /path/to/crash.json
 ```
 
 构建时保留 `-g`、build-id 与独立 debuginfo，服务端才能用 `addr2line` /
@@ -268,7 +266,7 @@ kernel.core_pattern = |/opt/vmon/bin/vmon_crash_helper \
 
 ```bash
 # CLI（推荐）
-/opt/vmon/bin/vmonctl --server http://127.0.0.1:18428 --token <token> health
+/opt/vmon/bin/vmonctl --server http://127.0.0.1:18428 health
 /opt/vmon/bin/vmonctl --server ... overview
 /opt/vmon/bin/vmonctl --server ... traces --request <request_id>
 /opt/vmon/bin/vmonctl --server ... trace <trace_id>
@@ -282,7 +280,7 @@ kernel.core_pattern = |/opt/vmon/bin/vmon_crash_helper \
 动态日志级别（带 TTL，到期自动恢复）：
 
 ```bash
-curl -s -H 'X-Vmon-Token: <token>' -H 'Content-Type: application/json' \
+curl -s -H 'Content-Type: application/json' \
   -d '{"node":"node-1","pid":12345,"level":"debug","ttl_ms":60000}' \
   http://127.0.0.1:18428/api/control/log-level
 ```
@@ -297,7 +295,7 @@ Agent 需要能访问业务进程的 `/run/vmon/ctrl/<pid>.sock`，且业务进�
   "mcpServers": {
     "vmon": {
       "command": "/opt/vmon/bin/vmon_mcp",
-      "args": ["--server", "http://127.0.0.1:18428", "--token", "<token>"]
+      "args": ["--server", "http://127.0.0.1:18428"]
     }
   }
 }
@@ -308,7 +306,7 @@ MCP 只暴露只读查询与证据包生成；对外发行版应设置 `"enable_
 ## 9. 安全与合规边界
 
 - 仅部署在纯内网；不要暴露到公网，不要在前面挂公网反向代理；
-- 必须设置 token；token 泄露等于维测数据泄露；
+- 只允许内网访问；当前无 TLS/RBAC，需用防火墙限制访问网段；
 - 诊断命令为固定白名单（`/proc` 快照、`ss`、`lsof`、`gdb bt`、`dmesg`），不拼接 shell；
 - 证据包默认脱敏 IP、邮箱、token/password、home 路径，但**导出仍需人工审批**；
 - 对外发行包关闭 `enable_evidence` 与 `enable_mcp`，不包含内部 AI 相关能力；
@@ -345,9 +343,9 @@ ctest --test-dir build --output-on-failure
 curl -s http://127.0.0.1:18428/api/health
 
 # Agent 在线与节点资产
-/opt/vmon/bin/vmonctl --server http://127.0.0.1:18428 --token <token> nodes
+/opt/vmon/bin/vmonctl --server http://127.0.0.1:18428 nodes
 
 # 一次请求的完整链路
-/opt/vmon/bin/vmonctl --server http://127.0.0.1:18428 --token <token> \
+/opt/vmon/bin/vmonctl --server http://127.0.0.1:18428 \
   traces --request <request_id>
 ```

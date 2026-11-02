@@ -120,21 +120,22 @@ class ApiTest : public ::testing::Test {
   int port_ = 0;
 };
 
-TEST_F(ApiTest, HealthIsPublicButEverythingElseNeedsToken) {
+TEST_F(ApiTest, HealthIsPublicAndApisNoLongerRequireToken) {
   auto health = client_->Get("/api/health");
   ASSERT_TRUE(health);
   EXPECT_EQ(200, health->status);
   EXPECT_EQ("ok", nlohmann::json::parse(health->body)["status"]);
 
-  auto denied = client_->Get("/api/overview");
-  ASSERT_TRUE(denied);
-  EXPECT_EQ(401, denied->status);
+  // 令牌鉴权已移除：无 token、错误 token 都应正常返回。
+  auto no_token = client_->Get("/api/overview");
+  ASSERT_TRUE(no_token);
+  EXPECT_EQ(200, no_token->status);
 
   httplib::Headers wrong;
   wrong.emplace("X-Vmon-Token", "wrong");
   auto wrong_res = client_->Get("/api/overview", wrong);
   ASSERT_TRUE(wrong_res);
-  EXPECT_EQ(401, wrong_res->status);
+  EXPECT_EQ(200, wrong_res->status);
 
   auto allowed = client_->Get("/api/overview", Auth());
   ASSERT_TRUE(allowed);

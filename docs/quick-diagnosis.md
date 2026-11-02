@@ -26,9 +26,8 @@
 
 ```bash
 BASE=http://127.0.0.1:18428
-TOKEN=dev-token
-curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/traces?q=REQ-2026-001"
-curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/requests/REQ-2026-001"
+curl -s "$BASE/api/traces?q=REQ-2026-001"
+curl -s "$BASE/api/requests/REQ-2026-001"
 ```
 
 ### 第二步：定位
@@ -41,7 +40,7 @@ curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/requests/REQ-2026-001"
 4. **拓扑边**：错误是否集中在一个下游（强边 vs 弱边）。
 
 ```bash
-curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/traces/<trace_id>" \
+curl -s "$BASE/api/traces/<trace_id>" \
   | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d["summary"]); print(d.get("first_error")); print(d.get("slowest_span"))'
 ```
 
@@ -53,9 +52,9 @@ curl -s -H "X-Vmon-Token: $TOKEN" "$BASE/api/traces/<trace_id>" \
 - **证据包**：脱敏 + SHA-256，可交给同事或内部 AI 复核。
 
 ```bash
-curl -s -H "X-Vmon-Token: $TOKEN" -H 'Content-Type: application/json' \
+curl -s -H 'Content-Type: application/json' \
   -d '{"request_id":"REQ-2026-001"}' "$BASE/api/diagnose"
-curl -s -H "X-Vmon-Token: $TOKEN" -H 'Content-Type: application/json' \
+curl -s -H 'Content-Type: application/json' \
   -d '{"incident":"INC-001","request_id":"REQ-2026-001","window_ns":3600000000000}' \
   "$BASE/api/evidence"
 ```
