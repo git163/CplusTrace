@@ -6,6 +6,7 @@ C++ 系统（10–50 节点、50–200 进程），把「人工翻多机多进�
 > 输入 `request_id` / `trace_id` / `task_id` / 错误码 / 时间窗 → 自动还原调用链 →
 > 关联每个环节的日志与错误 → 给出可疑根因与证据包。
 
+- **开发者上手指南（从 0 开始）**：[docs/onboarding.md](docs/onboarding.md)
 - **完整用户手册（案例 + 截图 + 演示）**：[docs/user-guide.md](docs/user-guide.md)
 - **快速诊断与定位**：[docs/quick-diagnosis.md](docs/quick-diagnosis.md)
 - **常用场景手册**：[docs/scenario-cookbook.md](docs/scenario-cookbook.md)
@@ -110,6 +111,10 @@ Public Domain 等宽松许可证。
 ### 3.2 构建与测试
 
 ```bash
+# 一键编译（Debug + 测试 + 示例）
+./scripts/build.sh --test
+
+# 或手动
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
 cmake --build build -j
 ctest --test-dir build --output-on-failure
@@ -329,7 +334,7 @@ CplusTrace/
 ├── deploy/         # 示例配置、systemd、tmpfiles
 ├── tests/          # 单元测试与端到端测试
 ├── docs/           # 设计约束、依赖、部署、验收
-└── scripts/        # 本地栈管理（vmon.sh）与三方依赖下载
+└── scripts/        # 一键编译（build.sh）、本地栈（vmon.sh）、三方下载
 ```
 
 ## 7. 平台与安全约束
