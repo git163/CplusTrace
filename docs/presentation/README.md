@@ -16,7 +16,7 @@
 | 文件 | 说明 |
 |---|---|
 | `vmon-intro.pptx` | 项目总体介绍（26 页，16:9） |
-| `trace-timeline.pptx` | 链路时序还原专题（15 页，进程间 + 进程内） |
+| `trace-timeline.pptx` | 链路时序还原专题（16 页，进程间 + 进程内） |
 | `build_deck.py` | 项目介绍生成脚本 |
 | `build_trace_deck.py` | 时序专题生成脚本 |
 | `requirements.txt` | 唯一依赖 `python-pptx` |

@@ -373,41 +373,43 @@ def slide_error_chain(prs, n):
     title(slide, "错误时序：first_error 与错误传播链",
           "错误码不是结论，要沿 parent 回溯到根，按时间排序所有错误 Span")
     rows = [
-        ("0.0 ms", "demo-python / Python/CallErrorBackend", "E_HTTP_500", "0", "15.7 ms"),
-        ("0.4 ms", "http-backend / HTTP/echo", "E_ECHO", "7768490", "15.1 ms"),
+        ("0.0 ms", "gateway / Gateway/Handle", "E_GATEWAY", "A", "35.0 ms"),
+        ("3.0 ms", "gateway / Gateway/CallOrder", "E_DOWNSTREAM", "A", "25.0 ms"),
+        ("4.0 ms", "order / Order/Create", "E_ORDER_DOWNSTREAM", "B", "23.6 ms"),
+        ("9.0 ms", "order / Order/CallInventory", "E_DOWNSTREAM", "B", "13.5 ms"),
+        ("10.0 ms", "inventory / Inventory/Check", "E_STOCK", "C", "12.2 ms"),
     ]
-    base.add_table(slide, LEFT, 1.55, 11.8, 1.5, [
-        ["偏移", "服务 / Span", "错误码", "tid", "耗时"],
+    base.add_table(slide, LEFT, 1.5, 11.8, 3.15, [
+        ["偏移", "服务 / Span", "错误码", "线程", "耗时"],
         *[list(row) for row in rows],
-    ], col_widths=[1.3, 5.0, 1.5, 1.3, 1.5], size=10, row_height=0.5)
-    text(slide, LEFT, 3.4, WIDTH, 0.3, "错误传播路径（root → first_error）",
+    ], col_widths=[1.2, 4.6, 2.2, 1.0, 1.5], size=9.5, row_height=0.45)
+    text(slide, LEFT, 4.75, WIDTH, 0.3, "错误传播路径（三个进程）",
          size=11, bold=True, color=MUTED)
-    # 路径
     nodes = [
-        ("demo-python", "Python/CallErrorBackend", "E_HTTP_500", RED),
-        ("http-backend", "HTTP/echo", "E_ECHO", AMBER),
+        ("gateway", "Gateway/Handle", "E_GATEWAY", RED),
+        ("order", "Order/Create", "E_ORDER_DOWNSTREAM", AMBER),
+        ("inventory", "Inventory/Check", "E_STOCK", RED),
     ]
-    x = 0.9
-    for i, (svc, name, code, color) in enumerate(nodes):
-        rect(slide, x, 3.85, 4.3, 1.1, WHITE, color)
-        text(slide, x + 0.18, 3.98, 3.9, 0.25, svc, size=9, color=MUTED)
-        text(slide, x + 0.18, 4.22, 3.9, 0.3, name, size=11, bold=True,
+    x = 0.7
+    for svc, name, code, color in nodes:
+        rect(slide, x, 5.1, 3.95, 0.95, WHITE, color)
+        text(slide, x + 0.15, 5.18, 3.6, 0.22, svc, size=8.5, color=MUTED)
+        text(slide, x + 0.15, 5.4, 3.6, 0.26, name, size=10, bold=True,
              color=INK)
-        text(slide, x + 0.18, 4.58, 3.9, 0.25, code, size=10, bold=True,
+        text(slide, x + 0.15, 5.7, 3.6, 0.22, code, size=9, bold=True,
              color=color, name="Menlo")
-        x += 4.75
-    arrow(slide, 5.3, 4.25, 0.5, 0.22, RED)
-    text(slide, LEFT, 5.3, WIDTH, 0.45,
-         "first_error = 最早进入 error 状态的 Span；first_path 由父指针回溯得到。\n"
-         "多个错误 Span 按 start 排序，形成“错误传播链”，区分首个错误与后续传播。",
-         size=11, color=MUTED, spacing=1.25)
-    rect(slide, LEFT, 6.3, WIDTH, 0.55, SOFT_RED)
-    text(slide, LEFT + 0.3, 6.42, WIDTH - 0.6, 0.3,
-         "若 client 包装层也标记错误，first_error 可能是 E_HTTP_500，而根因在后端的 E_ECHO。",
+        x += 4.15
+    arrow(slide, 4.55, 5.5, 0.3, 0.2, RED)
+    arrow(slide, 8.5, 5.5, 0.3, 0.2, AMBER)
+    rect(slide, LEFT, 6.25, WIDTH, 0.52, SOFT_RED)
+    text(slide, LEFT + 0.25, 6.35, WIDTH - 0.5, 0.3,
+         "first_error 可能是最早开始的根包装 Span；根因在链路最深的 E_STOCK，"
+         "要看完整错误链。",
          size=10.5, bold=True, color=RED)
     footer(slide, n)
-    notes(slide, "错误码可能被上层包装。只看 first_error 不够，要看整条错误传播链，"
-                 "尤其客户端 span 与后端 span 的错误码差异。")
+    notes(slide, "三进程案例里，根 Gateway 也会标记错误，因此 first_error 可能是"
+                 "E_GATEWAY；真正的根因是 Inventory 的 E_STOCK。"
+                 "错误传播链按 start 排序，能同时保留包装错误与根因。")
 
 
 def slide_async(prs, n):
@@ -451,76 +453,118 @@ def slide_async(prs, n):
                  "但还没有自动化的线程池包装器。")
 
 
-def slide_case_error(prs, n):
+def slide_case_tree(prs, n):
     slide = new_slide(prs)
-    title(slide, "真实案例 1：跨语言错误请求",
-          "request_id 收口，trace_id 看树，span_id 定位环节")
-    code(slide, LEFT, 1.45, 6.2, 3.9,
-         "request_id = demo-error-1793575660233\n"
-         "trace_id   = 7e22ecdec4d072496a1f92ab77eb7d15\n\n"
-         "span tree:\n"
-         "demo-python / Python/CallErrorBackend   16.3ms  E_HTTP_500\n"
-         "  -> http-backend / HTTP/echo           16.0ms  E_ECHO\n\n"
-         "first_error = E_HTTP_500\n"
-         "first_path  = Python/CallErrorBackend -> HTTP/echo", size=9)
-    rect(slide, 7.05, 1.45, 5.35, 3.9, WHITE, LINE)
-    text(slide, 7.25, 1.6, 4.9, 0.3, "还原步骤", size=11, bold=True,
+    title(slide, "真实案例：三个进程，一棵 Span 树",
+          "run_demo.py 实际运行：Gateway → Order → Inventory")
+    text(slide, LEFT, 1.5, 5.3, 0.3, "输入", size=11, bold=True, color=MUTED)
+    text(slide, LEFT, 1.85, 5.4, 0.7,
+         "request_id = mp-1793625232771\n"
+         "trace_id   = 36cafd528433e069b0accf122a1bcde9",
+         size=9.5, color=INK, name="Menlo")
+    text(slide, LEFT, 2.75, 5.4, 0.3, "链路", size=11, bold=True, color=MUTED)
+    text(slide, LEFT, 3.1, 5.4, 1.35,
+         "Gateway/Handle\n"
+         "  → Gateway/CallOrder\n"
+         "    → Order/Create\n"
+         "      → Order/CallInventory\n"
+         "        → Inventory/Check (E_STOCK)",
+         size=10, color=INK, spacing=1.25)
+    text(slide, LEFT, 4.7, 5.4, 0.3, "每个进程只需要：", size=11, bold=True,
          color=MUTED)
-    steps = [
-        "1. 按 request_id 找到 trace",
-        "2. 按 trace_id 建 Span 树",
-        "3. parent 连接 Python → C++",
-        "4. 按 begin/end 算耗时",
-        "5. 错误链标出两层错误码",
-    ]
-    for i, value in enumerate(steps):
-        text(slide, 7.25, 2.02 + i * 0.5, 4.9, 0.3, value, size=10,
-             color=INK)
-    text(slide, 7.25, 4.62, 4.9, 0.5,
-         "结论：错误发生在后端，但 client 也把它包装成 500；"
-         "两条错误都要保留。",
-         size=9.5, color=RED, bold=True, spacing=1.2)
-    text(slide, LEFT, 5.6, WIDTH, 0.45,
-         "数据来源：demo.py --scenario error；截图见 examples/screenshots/13-trace-multidim.png",
+    text(slide, LEFT, 5.05, 5.4, 1.1,
+         "入口 context_from_traceparent\n"
+         "出口 make_traceparent\n"
+         "trace_id 全程不变，span_id 每跳新建",
+         size=9.5, color=MUTED, spacing=1.2)
+    slide.shapes.add_picture(
+        os.path.join(HERE, "..", "images", "multiprocess-tree.png"),
+        Inches(6.25), Inches(1.35), width=Inches(6.5))
+    text(slide, LEFT, 6.55, WIDTH, 0.3,
+         "树由 Server 按 parent 重建；错误从 Inventory 的 E_STOCK 沿链回传。",
          size=9.5, color=MUTED)
     footer(slide, n)
-    notes(slide, "用一个真实例子串起来：request_id 收口，trace_id 看树，"
-                 "span_id 看出 Python 是父、C++ 是子。")
+    notes(slide, "这是实际运行的三进程例子：9 个 Span、3 个服务。"
+                 "左边是输入和代码边界，右边是 Server 还原出的树。")
 
 
-def slide_case_slow(prs, n):
+def slide_case_waterfall(prs, n):
     slide = new_slide(prs)
-    title(slide, "真实案例 2：慢调用与关键路径",
-          "span_end 时间差直接给出“慢在哪一跳”")
+    title(slide, "同一案例：跨进程瀑布图",
+          "横轴 = start_ns - trace.first_ns，父 Span 覆盖子 Span")
     rows = [
-        ("demo-python / Python/CallSlowBackend", 0, 809, BLUE),
-        ("http-backend / HTTP/echo", 1, 808, TEAL),
+        ("Gateway/Handle", 0, 35, BLUE),
+        ("Gateway/Auth", 1, 2.5, BLUE),
+        ("Gateway/CallOrder", 3, 25, BLUE),
+        ("Order/Create", 4, 23.6, TEAL),
+        ("Order/Validate", 5, 3.8, TEAL),
+        ("Order/CallInventory", 9, 13.5, TEAL),
+        ("Inventory/Check", 10, 12.2, AMBER),
+        ("Inventory/Query", 11, 6.3, AMBER),
+        ("Gateway/Respond", 30, 1.3, BLUE),
     ]
+    total = 36.0
+    track_x, track_w = 4.9, 7.3
     for i, (name, start, duration, color) in enumerate(rows):
-        y = 1.8 + i * 1.2
-        text(slide, LEFT, y + 0.05, 5.2, 0.3, name, size=10, color=INK)
-        rect(slide, 5.8, y, 6.4, 0.4, RGBColor(0x0D, 0x14, 0x20), LINE,
-             radius=0.2)
-        bx = 5.8 + (start / 820.0) * 6.4
-        bw = max(0.2, (duration / 820.0) * 6.4)
-        rect(slide, bx, y + 0.05, bw, 0.3, color, radius=0.2)
-        text(slide, bx + bw + 0.1, y + 0.02, 1.1, 0.25, "%d ms" % duration,
-             size=9, color=color, bold=True)
-    text(slide, LEFT, 4.4, WIDTH, 0.35,
-         "关键路径：demo-python → http-backend；最慢 Span 是后端 HTTP/echo（约 808ms）。",
-         size=11, bold=True, color=base.BLUE_DARK)
-    code(slide, LEFT, 4.9, 5.8, 1.35,
-         "// backend: x-vmon-sleep-ms: 800\n"
-         "// frontend only sees slow; span points to backend", size=9)
-    text(slide, 6.8, 4.95, 5.5, 1.2,
-         "下一步：\n"
-         "· 后端 Span 内再拆函数级 Span\n"
-         "· 或打开 Profiling 看火焰图\n"
-         "· 关键路径决定优先优化哪一跳",
-         size=9.5, color=MUTED, spacing=1.25)
+        y = 1.55 + i * 0.58
+        text(slide, LEFT, y + 0.02, 4.0, 0.25, name, size=9, color=INK)
+        rect(slide, track_x, y, track_w, 0.28, RGBColor(0x0D, 0x14, 0x20),
+             LINE, radius=0.2)
+        bx = track_x + (start / total) * track_w
+        bw = max(0.08, (duration / total) * track_w)
+        rect(slide, bx, y + 0.04, bw, 0.2, color, radius=0.2)
+        text(slide, min(track_x + track_w - 0.8, bx + bw + 0.08), y - 0.01,
+             0.9, 0.2, "%.1fms" % duration, size=7.5, color=color)
+    text(slide, LEFT, 6.85, WIDTH, 0.25,
+         "关键路径：Gateway → Order → Inventory；root duration 35ms 是端到端耗时。",
+         size=10, bold=True, color=base.BLUE_DARK)
     footer(slide, n)
-    notes(slide, "慢调用是时序还原最直接的收益：不需要猜，"
-                 "span_end - span_begin 就给出每一跳耗时。")
+    notes(slide, "同一份数据换成瀑布图：每一行一个 Span，长度是 end-begin，"
+                 "位置是相对 trace 起点的偏移。父条覆盖子条。")
+
+
+def slide_case_threads(prs, n):
+    slide = new_slide(prs)
+    title(slide, "同一案例：进程内线程时序",
+          "三个进程各自有线程；Span 带 tid，按线程画泳道")
+    lanes = [
+        ("gateway / tid A", [("Handle", 0, 35, BLUE, 0),
+                             ("Auth", 1, 2.5, BLUE, 1),
+                             ("CallOrder", 3, 25, BLUE, 1),
+                             ("Respond", 30, 1.3, BLUE, 1)]),
+        ("order / tid B", [("Create", 4, 23.6, TEAL, 0),
+                           ("Validate", 5, 3.8, TEAL, 1),
+                           ("CallInventory", 9, 13.5, TEAL, 1)]),
+        ("inventory / tid C", [("Check", 10, 12.2, AMBER, 0),
+                               ("Query", 11, 6.3, AMBER, 1)]),
+    ]
+    x0, lane_w = 3.0, 8.8
+    total = 36.0
+    for i, (label, bars) in enumerate(lanes):
+        y = 1.65 + i * 1.4
+        text(slide, 0.7, y + 0.12, 2.2, 0.3, label, size=9, color=MUTED,
+             name="Menlo")
+        rect(slide, x0, y, lane_w, 0.95, RGBColor(0x0D, 0x14, 0x20), LINE,
+             radius=0.15)
+        for name, start, duration, color, row in bars:
+            bar_y = y + (0.08 if row == 0 else 0.58)
+            bar_h = 0.28 if row == 0 else 0.22
+            bx = x0 + (start / total) * lane_w
+            bw = max(0.15, (duration / total) * lane_w)
+            rect(slide, bx, bar_y, bw, bar_h, color, radius=0.15)
+            if bw > 0.5:
+                text(slide, bx + 0.04, bar_y + 0.04, bw - 0.06, bar_h - 0.04,
+                     name, size=7, color=WHITE, bold=True)
+    text(slide, LEFT, 5.85, WIDTH, 0.35,
+         "同一进程内：Span 栈自动给出嵌套父子；跨进程：traceparent 给出父 span_id。",
+         size=11, bold=True, color=base.BLUE_DARK)
+    text(slide, LEFT, 6.3, WIDTH, 0.5,
+         "每个线程一行，蓝/青/橙代表不同进程；\n"
+         "上层是入口 Span，下层是它调用的子 Span。",
+         size=9.5, color=MUTED, spacing=1.2)
+    footer(slide, n)
+    notes(slide, "线程泳道把同一进程内的嵌套调用展开：入口 Span 在上层，"
+                 "子 Span 在下层；不同进程用不同颜色。")
 
 
 def slide_pipeline(prs, n):
@@ -633,11 +677,12 @@ def main():
     slide_thread_lane(prs, 8)
     slide_error_chain(prs, 9)
     slide_async(prs, 10)
-    slide_case_error(prs, 11)
-    slide_case_slow(prs, 12)
-    slide_pipeline(prs, 13)
-    slide_boundary(prs, 14)
-    slide_summary(prs, 15)
+    slide_case_tree(prs, 11)
+    slide_case_waterfall(prs, 12)
+    slide_case_threads(prs, 13)
+    slide_pipeline(prs, 14)
+    slide_boundary(prs, 15)
+    slide_summary(prs, 16)
     out = os.path.join(HERE, "trace-timeline.pptx")
     prs.save(out)
     print("已生成：%s" % out)
