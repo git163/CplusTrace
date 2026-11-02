@@ -96,8 +96,8 @@ C++ 系统（10–50 节点、50–200 进程），把「人工翻多机多进�
 ./scripts/download-third-party.sh --proxy http://127.0.0.1:7890
 
 # 只下载源码/头文件，或只打印链接
-./scripts/download-third-party.sh --sources-only
-./scripts/download-third-party.sh --list
+./scripts/download-third-party.sh --sources
+./scripts/download-third-party.sh --dry-run
 
 # Linux 目标机（移植阶段）
 ./scripts/download-third-party.sh --os linux --arch amd64

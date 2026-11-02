@@ -85,7 +85,7 @@ for _ in $(seq 1 100); do
   sleep 0.1
 done
 if [[ "$RESPONSE" != *'"traces":[{'* ]]; then
-  echo "[demo] 未查到 trace，Server 日志：$SERVER_LOG，Agent 日志：$AGENT_LOG"
+  echo "[demo] 未查到 trace，Server 日志：${SERVER_LOG}，Agent 日志：$AGENT_LOG"
   exit 1
 fi
 

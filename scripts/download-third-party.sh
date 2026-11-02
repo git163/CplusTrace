@@ -17,8 +17,8 @@
 #   --os 默认取本机：macOS 开发机下载 darwin 二进制，本机先跑通；Linux 目标机用 --os linux。
 #   源码包与前端资源与 OS/CPU 无关，只下载一次。
 #   - macOS arm64 : 首期开发/验证环境（当前开发机），用 clang 编译
-#   - x86_64 Linux: 目标生产环境，gcc 12.3，C++17 完整可用
-#   - aarch64 Linux: 目标生产环境，gcc 7.3.0，C++17 基本可用，但注意：
+#   - x86_64 Linux: 目标生产环境，gcc 12.3，C++14 基线
+#   - aarch64 Linux: 目标生产环境，gcc 7.3.0，C++14 基线，但注意：
 #       * 不要使用 std::filesystem（gcc 8+ 才完整），用 POSIX 或 Poco::File
 #       * 不要使用 std::format / std::span / std::jthread / std::bit_cast（C++20）
 #       * 不要依赖 std::to_chars/from_chars 的浮点支持（gcc 7 不完整）
@@ -88,14 +88,14 @@ case "$ARCH_MODE" in
   current) ARCHS=("$HOST_ARCH") ;;
   all)     ARCHS=("amd64" "arm64") ;;
   amd64|arm64) ARCHS=("$ARCH_MODE") ;;
-  *)       echo "无效 --arch: $ARCH_MODE（可选 amd64/arm64/all/current）" >&2; exit 1 ;;
+  *)       echo "无效 --arch: ${ARCH_MODE}（可选 amd64/arm64/all/current）" >&2; exit 1 ;;
 esac
 
 case "$OS_MODE" in
   host)    OSES=("$HOST_OS") ;;
   all)     OSES=("linux" "darwin") ;;
   linux|darwin) OSES=("$OS_MODE") ;;
-  *)       echo "无效 --os: $OS_MODE（可选 linux/darwin/all/host）" >&2; exit 1 ;;
+  *)       echo "无效 --os: ${OS_MODE}（可选 linux/darwin/all/host）" >&2; exit 1 ;;
 esac
 
 mkdir -p "$DEST/sources" "$DEST/binaries" "$DEST/frontend"

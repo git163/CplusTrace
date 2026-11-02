@@ -25,7 +25,7 @@ trap 'rm -rf "$TMP"' EXIT
 
 rsync -a \
   --exclude '.git/' \
-  --exclude 'build/' \
+  --exclude 'build*/' \
   --exclude '.venv/' \
   --exclude '.vmon-run/' \
   --exclude '.playwright-mcp/' \
@@ -43,5 +43,5 @@ tar -czf "$ARCHIVE" -C "$TMP" "$NAME"
 
 SIZE=$(du -h "$ARCHIVE" | awk '{print $1}')
 COUNT=$(tar -tzf "$ARCHIVE" | wc -l | tr -d ' ')
-echo "已生成：$ARCHIVE（$SIZE，$COUNT 个条目）"
+echo "已生成：${ARCHIVE}（${SIZE}，$COUNT 个条目）"
 echo "提示：压缩包不进入 git；third_party/src 已入库，downloads/bin 请按平台下载"

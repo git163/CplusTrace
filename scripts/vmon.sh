@@ -121,11 +121,11 @@ wait_socket() {
 
 start_server() {
   if pid=$(pid_of "$SERVER_PID_FILE"); then
-    log "Server 已在运行（pid=$pid）"
+    log "Server 已在运行（pid=${pid}）"
     return 0
   fi
   mkdir -p "$RUN_DIR" "$SERVER_STATE"
-  log "启动 Server：监听 $HOST:$PORT，Web UI $PUBLIC_URL/"
+  log "启动 Server：监听 $HOST:${PORT}，Web UI $PUBLIC_URL/"
   nohup "$SERVER_BIN" \
     --listen-host "$HOST" --port "$PORT" --token "$TOKEN" \
     --state-dir "$SERVER_STATE" --web-dir "$ROOT/web" \
@@ -136,12 +136,12 @@ start_server() {
     tail -n 20 "$SERVER_LOG" >&2 || true
     return 1
   fi
-  log "Server 就绪（pid=$(cat "$SERVER_PID_FILE")，日志 $SERVER_LOG）"
+  log "Server 就绪（pid=$(cat "$SERVER_PID_FILE")，日志 ${SERVER_LOG}）"
 }
 
 start_agent() {
   if pid=$(pid_of "$AGENT_PID_FILE"); then
-    log "Agent 已在运行（pid=$pid）"
+    log "Agent 已在运行（pid=${pid}）"
     return 0
   fi
   mkdir -p "$RUN_DIR" "$AGENT_STATE" "$CTRL_DIR" "$CRASH_DIR"
@@ -167,7 +167,7 @@ start_agent() {
     tail -n 20 "$AGENT_LOG" >&2 || true
     return 1
   fi
-  log "Agent 就绪（pid=$(cat "$AGENT_PID_FILE")，日志 $AGENT_LOG）"
+  log "Agent 就绪（pid=$(cat "$AGENT_PID_FILE")，日志 ${AGENT_LOG}）"
 }
 
 stop_one() {
@@ -178,7 +178,7 @@ stop_one() {
     log "$name 未运行"
     return 0
   fi
-  log "停止 $name（pid=$pid）"
+  log "停止 ${name}（pid=${pid}）"
   kill "$pid" 2>/dev/null || true
   local i
   for i in $(seq 1 50); do
@@ -223,9 +223,9 @@ cmd_status() {
   local ok=0
   if pid=$(pid_of "$SERVER_PID_FILE"); then
     if curl -sf --max-time 1 "$CONNECT_URL/api/health" >/dev/null 2>&1; then
-      log "Server  : 运行中 pid=$pid，健康检查通过"
+      log "Server  : 运行中 pid=${pid}，健康检查通过"
     else
-      log "Server  : 运行中 pid=$pid，但健康检查失败"
+      log "Server  : 运行中 pid=${pid}，但健康检查失败"
       ok=1
     fi
   else
@@ -234,16 +234,16 @@ cmd_status() {
   fi
   if pid=$(pid_of "$AGENT_PID_FILE"); then
     if [[ -S "$UDS" ]]; then
-      log "Agent   : 运行中 pid=$pid，UDS 就绪"
+      log "Agent   : 运行中 pid=${pid}，UDS 就绪"
     else
-      log "Agent   : 运行中 pid=$pid，但 UDS 不存在"
+      log "Agent   : 运行中 pid=${pid}，但 UDS 不存在"
       ok=1
     fi
   else
     log "Agent   : 未运行"
     ok=1
   fi
-  log "Web UI  : $PUBLIC_URL/（本机 http://127.0.0.1:$PORT/，令牌 $TOKEN）"
+  log "Web UI  : $PUBLIC_URL/（本机 http://127.0.0.1:$PORT/，令牌 ${TOKEN}）"
   log "运行目录: $RUN_DIR"
   return "$ok"
 }
@@ -255,7 +255,7 @@ cmd_logs() {
   case "$target" in
     server) file=$SERVER_LOG ;;
     agent) file=$AGENT_LOG ;;
-    *) err "未知日志目标：$target（可选 server / agent）"; exit 2 ;;
+    *) err "未知日志目标：${target}（可选 server / agent）"; exit 2 ;;
   esac
   [[ -f "$file" ]] || { err "日志不存在：$file"; exit 1; }
   if [[ "$follow" == "-f" || "$follow" == "--follow" ]]; then
@@ -267,7 +267,7 @@ cmd_logs() {
 
 cmd_clean() {
   if [[ "${FORCE:-0}" != "1" ]]; then
-    err "clean 会删除 $RUN_DIR（含 WAL、证据包、日志）。确认请用：FORCE=1 $0 clean"
+    err "clean 会删除 ${RUN_DIR}（含 WAL、证据包、日志）。确认请用：FORCE=1 $0 clean"
     exit 2
   fi
   cmd_down
