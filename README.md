@@ -17,6 +17,7 @@ C++ 系统（10–50 节点、50–200 进程），把「人工翻多机多进�
 - 本轮能力补齐设计：[docs/feature-gap-design.md](docs/feature-gap-design.md)
 - Web/Python 客户端接入设计：[docs/client-observability.md](docs/client-observability.md)
 - 项目介绍 PPT：[docs/presentation/](docs/presentation/)
+- **链路时序还原专题 PPT**：[docs/presentation/trace-timeline.pptx](docs/presentation/trace-timeline.pptx)
 - 竞品对照与取舍：[docs/competitive-analysis.md](docs/competitive-analysis.md)
 - 观测云深入对标与本轮落地：[docs/guance-benchmark.md](docs/guance-benchmark.md)
 - Web UI 浏览器回归记录：[docs/ui-test-report.md](docs/ui-test-report.md)

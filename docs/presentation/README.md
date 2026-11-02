@@ -8,14 +8,17 @@
 - 六块核心能力、四个高频场景、快速诊断三步法与客户端接入；
 - 如何接入、如何上手、当前边界与下一步。
 
-更细的类图、时序图与框架原理图见 [../module-design.md](../module-design.md)。
+更细的类图、时序图与框架原理图见 [../module-design.md](../module-design.md)；
+链路时序的计算细节见 [../principles.md](../principles.md)。
 
 ## 文件
 
 | 文件 | 说明 |
 |---|---|
-| `vmon-intro.pptx` | 可直接编辑/放映的演示文稿（16:9） |
-| `build_deck.py` | 生成脚本，改文案/配色后重新运行即可 |
+| `vmon-intro.pptx` | 项目总体介绍（26 页，16:9） |
+| `trace-timeline.pptx` | 链路时序还原专题（15 页，进程间 + 进程内） |
+| `build_deck.py` | 项目介绍生成脚本 |
+| `build_trace_deck.py` | 时序专题生成脚本 |
 | `requirements.txt` | 唯一依赖 `python-pptx` |
 
 ## 重新生成
@@ -24,6 +27,7 @@
 python3 -m venv .venv
 .venv/bin/pip install -r docs/presentation/requirements.txt
 .venv/bin/python docs/presentation/build_deck.py
+.venv/bin/python docs/presentation/build_trace_deck.py
 ```
 
 脚本会同时做结构自检：页数、形状越界、明显文字溢出。
