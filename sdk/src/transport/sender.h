@@ -38,6 +38,9 @@ class Sender {
   bool connect_socket() noexcept;
   void close_socket() noexcept;
   void write_events(const Event* events, size_t count) noexcept;
+  void write_lineage_events(const LineageEvent* events, size_t count) noexcept;
+  void write_buffer(const std::string& buffer, size_t prepared,
+                    size_t lost) noexcept;
 
   std::thread thread_;
   std::atomic<bool> running_{false};

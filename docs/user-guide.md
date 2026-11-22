@@ -269,6 +269,36 @@ curl -s -H 'Content-Type: application/json'   -d '{"service":"order","level":"de
 
 重启/回滚等有风险动作只作为建议，由人确认后在平台侧执行；证据包用于复盘。
 
+### 2.13 数据血缘：从异常追到数据来源
+
+当故障没有错误码、最终表现是"结果不对"时，用「数据血缘」页定位。
+
+1. **跑工业控制示例**（7 个进程，无错误码故障）：
+
+   ```bash
+   # Python 版（直连 Server）
+   python3 examples/industrial/run_demo.py --start-server --server-bin build/vmon_server
+   # C++ 版（真实 SDK → Agent → Server）
+   python3 examples/industrial_cpp/run_demo.py --fault identity
+   ```
+
+2. 打开 Web →「数据血缘」，选择脚本打印的 `run_id`；
+3. 先看**前置闸门**：G0 状态 / G1 计数 / G2 身份 / G3 时序，命中的那一项直接指向子系统；
+4. 再看**根因分析**：verdict、置信度、候选、偏离基线、待确认；
+5. 最后看**实例血缘图**：服务方框图 + 值传播边，字段值从哪个服务流到哪个服务；
+   **点击服务方框可跳到该迭代的 trace 链路图**（Span 树 / 瀑布图）。
+
+也可以直接调 API：
+
+```bash
+curl -s "$BASE/api/lineage/runs"
+curl -s "$BASE/api/lineage/gates?run_id=<run>"
+curl -s "$BASE/api/lineage/rca?run_id=<run>"
+curl -s "$BASE/api/lineage/graph?run_id=<run>&iteration_id=37"
+```
+
+原理与接入方式见 [data-lineage-design.md](data-lineage-design.md)。
+
 ## 3. 完整案例
 
 > 下列 ID、耗时来自真实 demo 运行，**每次运行会变化**，以脚本打印/页面显示为准；

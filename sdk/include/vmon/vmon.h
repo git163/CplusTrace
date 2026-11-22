@@ -74,6 +74,34 @@ void set_task_id(const char* task_id) noexcept;
 const char* request_id() noexcept;
 const char* task_id() noexcept;
 
+// ---- 数据血缘 ------------------------------------------------------------
+// 设置当前线程的作业运行与迭代序号（血缘事件用）。
+void set_run_id(const char* run_id) noexcept;
+void set_iteration_id(uint64_t iteration_id) noexcept;
+
+enum class DataDir : uint8_t { kIn = 0, kOut = 1, kLocal = 2 };
+enum class DataKind : uint8_t {
+  kString = 0,
+  kInt = 1,
+  kFloat = 2,
+  kBool = 3,
+  kBytes = 4,
+  kOpaque = 5,
+};
+
+// 记录一个字段值（写入线程本地血缘环；不分配、不加锁、不 IO）。
+// object/field 必须是静态字符串或长生命周期；value 拷贝到固定缓冲并截断。
+void record_field(const char* object, const char* field, const char* value,
+                  DataDir dir = DataDir::kLocal,
+                  DataKind kind = DataKind::kString) noexcept;
+void record_field_i64(const char* object, const char* field, int64_t value,
+                      DataDir dir = DataDir::kOut) noexcept;
+void record_field_f64(const char* object, const char* field, double value,
+                      DataDir dir = DataDir::kOut) noexcept;
+
+// 记录设备状态（如 initialized / enabled / calibrated）。
+void record_state(const char* device, const char* state) noexcept;
+
 class Span;
 
 // 跨线程/跨进程传递的最小上下文。
@@ -153,6 +181,20 @@ uint64_t dropped_events() noexcept;
       ::vmon::log(level, __FILE__, __LINE__, __VA_ARGS__);                  \
     }                                                                       \
   } while (0)
+
+// 数据血缘宏：显式埋点，每字段一行。
+#define VMON_FIELD(object, field, value)                                   \
+  ::vmon::record_field((object), (field), (value), ::vmon::DataDir::kLocal, \
+                       ::vmon::DataKind::kString)
+#define VMON_FIELD_IN(object, field, value)                                \
+  ::vmon::record_field((object), (field), (value), ::vmon::DataDir::kIn,   \
+                       ::vmon::DataKind::kString)
+#define VMON_FIELD_OUT(object, field, value)                               \
+  ::vmon::record_field((object), (field), (value), ::vmon::DataDir::kOut,  \
+                       ::vmon::DataKind::kString)
+#define VMON_FIELD_I64(object, field, value)                               \
+  ::vmon::record_field_i64((object), (field), (value), ::vmon::DataDir::kLocal)
+#define VMON_STATE(device, state) ::vmon::record_state((device), (state))
 
 #define VMON_TRACE(...) VMON_LOG(::vmon::Level::kTrace, __VA_ARGS__)
 #define VMON_DEBUG(...) VMON_LOG(::vmon::Level::kDebug, __VA_ARGS__)

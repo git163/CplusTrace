@@ -46,6 +46,7 @@ target_compile_definitions(vmon_third_party INTERFACE
 add_library(vmon STATIC
   sdk/src/vmon.cpp
   sdk/src/trace/span.cpp
+  sdk/src/trace/lineage.cpp
   sdk/src/log/log.cpp
   sdk/src/core/registry.cpp
   sdk/src/transport/sender.cpp
@@ -128,6 +129,7 @@ add_library(vmon_server_core STATIC
   server/src/evidence.cpp
   server/src/forwarder.cpp
   server/src/issues.cpp
+  server/src/lineage.cpp
   server/src/log_cluster.cpp
   server/src/notifier.cpp
   server/src/pipeline.cpp
@@ -169,6 +171,7 @@ if(VMON_BUILD_EXAMPLES)
   add_subdirectory(examples/hello)
   add_subdirectory(examples/http_backend)
   add_subdirectory(examples/multiprocess)
+  add_subdirectory(examples/industrial_cpp)
 endif()
 
 # ---------------------------------------------------------------- 测试

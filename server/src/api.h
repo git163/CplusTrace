@@ -14,6 +14,7 @@
 #include "dashboard.h"
 #include "forwarder.h"
 #include "issues.h"
+#include "lineage.h"
 #include "notifier.h"
 #include "pipeline.h"
 #include "profiler.h"
@@ -30,6 +31,7 @@ struct ServerContext {
 
   ServerConfig config;
   Store store;
+  LineageStore lineage;
   CrashStore crashes;
   ProfileStore profiles;
   CommandStore commands;

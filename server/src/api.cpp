@@ -689,6 +689,23 @@ nlohmann::json mcp_tools() {
   tools.push_back({{"name", "list_events"},
                    {"description", "列出事件中心最近的告警/崩溃/变更"},
                    {"inputSchema", schema({{"limit", {{"type", "integer"}}}})}});
+  tools.push_back({{"name", "lineage_runs"},
+                   {"description", "列出数据血缘作业运行（run）"},
+                   {"inputSchema", schema({{"limit", {{"type", "integer"}}}})}});
+  tools.push_back({{"name", "lineage_gates"},
+                   {"description", "查看某 run 的前置闸门（状态/计数/身份/时序）结果"},
+                   {"inputSchema",
+                    schema({{"run_id", {{"type", "string"}}}})}});
+  tools.push_back({{"name", "lineage_rca"},
+                   {"description", "对某 run 做根因分析（闸门+差分+归因+叙述）"},
+                   {"inputSchema",
+                    schema({{"run_id", {{"type", "string"}}},
+                            {"iteration_id", {{"type", "integer"}}}})}});
+  tools.push_back({{"name", "lineage_graph"},
+                   {"description", "查看某迭代的跨进程实例血缘图"},
+                   {"inputSchema",
+                    schema({{"run_id", {{"type", "string"}}},
+                            {"iteration_id", {{"type", "integer"}}}})}});
   return tools;
 }
 
@@ -778,6 +795,18 @@ nlohmann::json mcp_call_tool(ServerContext& ctx, const std::string& name,
       events.push_back(event_to_json(event));
     }
     result = {{"events", events}};
+  } else if (name == "lineage_runs") {
+    result = {{"runs", ctx.lineage.runs(args.value("limit", 100u))}};
+  } else if (name == "lineage_gates") {
+    result = ctx.lineage.gates(args.value("run_id", std::string()));
+  } else if (name == "lineage_rca") {
+    result = ctx.lineage.rca(
+        args.value("run_id", std::string()),
+        args.value("iteration_id", static_cast<uint64_t>(0)));
+  } else if (name == "lineage_graph") {
+    result = ctx.lineage.graph(
+        args.value("run_id", std::string()),
+        args.value("iteration_id", static_cast<uint64_t>(0)));
   } else {
     throw std::runtime_error("未知工具: " + name);
   }
@@ -1047,6 +1076,9 @@ void register_routes(httplib::Server& server, ServerContext& ctx) {
         }
         // 入库前脱敏：敏感字段不进入 Store，也不会出现在证据包/AI 上下文里。
         ctx.pipeline.process(&event);
+        if (event.type == "lineage" || event.type == "state") {
+          ctx.lineage.ingest(event, node);
+        }
         ctx.store.ingest(event, node, agent);
         ctx.rules.on_event(event, &ctx.store);
         ctx.forwarder.submit(event);
@@ -1151,6 +1183,63 @@ void register_routes(httplib::Server& server, ServerContext& ctx) {
                                             httplib::Response& res) {
     if (!guard(req, res)) return;
     send_json(res, services_json(ctx));
+  });
+
+  // ------------------------------------------------------------ 数据血缘
+  server.Get("/api/lineage/runs", [&ctx, guard](const httplib::Request& req,
+                                                httplib::Response& res) {
+    if (!guard(req, res)) return;
+    send_json(res, ctx.lineage.runs(param_u64(req, "limit", 100)));
+  });
+
+  server.Get("/api/lineage/graph", [&ctx, guard](const httplib::Request& req,
+                                                 httplib::Response& res) {
+    if (!guard(req, res)) return;
+    const std::string run_id = param(req, "run_id");
+    if (run_id.empty()) {
+      send_error(res, 400, "缺少 run_id");
+      return;
+    }
+    nlohmann::json out =
+        ctx.lineage.graph(run_id, param_u64(req, "iteration_id", 0));
+    if (out.is_null() || out.empty()) {
+      send_error(res, 404, "run 不存在");
+      return;
+    }
+    send_json(res, out);
+  });
+
+  server.Get("/api/lineage/gates", [&ctx, guard](const httplib::Request& req,
+                                                 httplib::Response& res) {
+    if (!guard(req, res)) return;
+    const std::string run_id = param(req, "run_id");
+    if (run_id.empty()) {
+      send_error(res, 400, "缺少 run_id");
+      return;
+    }
+    nlohmann::json out = ctx.lineage.gates(run_id);
+    if (out.is_null() || out.empty()) {
+      send_error(res, 404, "run 不存在");
+      return;
+    }
+    send_json(res, out);
+  });
+
+  server.Get("/api/lineage/rca", [&ctx, guard](const httplib::Request& req,
+                                               httplib::Response& res) {
+    if (!guard(req, res)) return;
+    const std::string run_id = param(req, "run_id");
+    if (run_id.empty()) {
+      send_error(res, 400, "缺少 run_id");
+      return;
+    }
+    nlohmann::json out =
+        ctx.lineage.rca(run_id, param_u64(req, "iteration_id", 0));
+    if (out.contains("error")) {
+      send_error(res, 404, out.value("error", std::string("run 不存在")));
+      return;
+    }
+    send_json(res, out);
   });
 
   server.Get("/api/nodes", [&ctx, guard](const httplib::Request& req,

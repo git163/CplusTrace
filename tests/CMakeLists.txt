@@ -32,6 +32,73 @@ else()
   message(STATUS "未找到 Python3，跳过端到端测试 vmon_e2e")
 endif()
 
+# ---------------------------------------------------------------- 数据血缘示例
+# 工业控制闭环：7 个真实进程 + 血缘闸门 + RCA。不依赖 examples 开关。
+if(Python3_Interpreter_FOUND AND TARGET vmon_server)
+  add_test(NAME vmon_industrial_identity
+    COMMAND Python3::Interpreter
+      ${CMAKE_CURRENT_SOURCE_DIR}/../examples/industrial/run_demo.py
+      --start-server --server-bin $<TARGET_FILE:vmon_server>
+      --port 19449 --iterations 12 --fault identity
+      --expect-verdict identity_mismatch)
+  set_tests_properties(vmon_industrial_identity PROPERTIES TIMEOUT 120)
+
+  add_test(NAME vmon_industrial_timing
+    COMMAND Python3::Interpreter
+      ${CMAKE_CURRENT_SOURCE_DIR}/../examples/industrial/run_demo.py
+      --start-server --server-bin $<TARGET_FILE:vmon_server>
+      --port 19450 --iterations 50 --fault timing
+      --expect-verdict timing_violation)
+  set_tests_properties(vmon_industrial_timing PROPERTIES TIMEOUT 120)
+
+  add_test(NAME vmon_industrial_count
+    COMMAND Python3::Interpreter
+      ${CMAKE_CURRENT_SOURCE_DIR}/../examples/industrial/run_demo.py
+      --start-server --server-bin $<TARGET_FILE:vmon_server>
+      --port 19451 --iterations 30 --fault count
+      --expect-verdict cardinality_mismatch)
+  set_tests_properties(vmon_industrial_count PROPERTIES TIMEOUT 120)
+
+  add_test(NAME vmon_industrial_state
+    COMMAND Python3::Interpreter
+      ${CMAKE_CURRENT_SOURCE_DIR}/../examples/industrial/run_demo.py
+      --start-server --server-bin $<TARGET_FILE:vmon_server>
+      --port 19452 --iterations 30 --fault state
+      --expect-verdict state_precondition_violation)
+  set_tests_properties(vmon_industrial_state PROPERTIES TIMEOUT 120)
+
+  add_test(NAME vmon_industrial_algo
+    COMMAND Python3::Interpreter
+      ${CMAKE_CURRENT_SOURCE_DIR}/../examples/industrial/run_demo.py
+      --start-server --server-bin $<TARGET_FILE:vmon_server>
+      --port 19453 --iterations 30 --fault algo
+      --expect-verdict value_deviation)
+  set_tests_properties(vmon_industrial_algo PROPERTIES TIMEOUT 120)
+
+  # C++ 版示例（走真实 SDK → Agent → Server），仅在构建了 examples 时启用。
+  if(TARGET vmon_industrial AND TARGET vmon_agent)
+    add_test(NAME vmon_industrial_cpp_identity
+      COMMAND Python3::Interpreter
+        ${CMAKE_CURRENT_SOURCE_DIR}/../examples/industrial_cpp/run_demo.py
+        --server-bin $<TARGET_FILE:vmon_server>
+        --agent-bin $<TARGET_FILE:vmon_agent>
+        --client-bin $<TARGET_FILE:vmon_industrial>
+        --port 19454 --iterations 20 --fault identity
+        --expect-verdict identity_mismatch)
+    set_tests_properties(vmon_industrial_cpp_identity PROPERTIES TIMEOUT 120)
+
+    add_test(NAME vmon_industrial_cpp_timing
+      COMMAND Python3::Interpreter
+        ${CMAKE_CURRENT_SOURCE_DIR}/../examples/industrial_cpp/run_demo.py
+        --server-bin $<TARGET_FILE:vmon_server>
+        --agent-bin $<TARGET_FILE:vmon_agent>
+        --client-bin $<TARGET_FILE:vmon_industrial>
+        --port 19455 --iterations 50 --fault timing
+        --expect-verdict timing_violation)
+    set_tests_properties(vmon_industrial_cpp_timing PROPERTIES TIMEOUT 120)
+  endif()
+endif()
+
 # ---------------------------------------------------------------- 单元测试
 # 单元测试：优先使用 third_party 中已解压的 GoogleTest；
 # 未下载时跳过测试，保证“只跑运行时”的机器也能构建。
@@ -69,6 +136,7 @@ add_executable(vmon_server_tests
   ${CMAKE_SOURCE_DIR}/server/tests/dashboard_test.cpp
   ${CMAKE_SOURCE_DIR}/server/tests/evidence_test.cpp
   ${CMAKE_SOURCE_DIR}/server/tests/issues_test.cpp
+  ${CMAKE_SOURCE_DIR}/server/tests/lineage_test.cpp
   ${CMAKE_SOURCE_DIR}/server/tests/log_cluster_test.cpp
   ${CMAKE_SOURCE_DIR}/server/tests/notifier_test.cpp
   ${CMAKE_SOURCE_DIR}/server/tests/pipeline_test.cpp

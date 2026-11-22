@@ -43,6 +43,20 @@ void drain_visitor(ThreadContext* ctx, void* user) noexcept {
   }
 }
 
+struct LineageDrainState {
+  LineageEvent* out;
+  size_t capacity;
+  size_t count;
+};
+
+void drain_lineage_visitor(ThreadContext* ctx, void* user) noexcept {
+  LineageDrainState* state = static_cast<LineageDrainState*>(user);
+  LineageEvent ev;
+  while (state->count < state->capacity && ctx->lineage_ring.pop(ev)) {
+    state->out[state->count++] = ev;
+  }
+}
+
 void sleep_interruptible(const std::atomic<bool>& running,
                          uint32_t total_ms) noexcept {
   const uint32_t step_ms = 10;
@@ -146,6 +160,7 @@ bool Sender::connect_socket() noexcept {
 
 void Sender::run() noexcept {
   std::vector<Event> batch(1024);
+  std::vector<LineageEvent> lineage_batch(256);
 
   while (running_.load()) {
     if (fd_ < 0 && !connect_socket()) {
@@ -163,7 +178,35 @@ void Sender::run() noexcept {
       write_events(batch.data(), state.count);
     }
 
+    LineageDrainState lineage_state;
+    lineage_state.out = lineage_batch.data();
+    lineage_state.capacity = lineage_batch.size();
+    lineage_state.count = 0;
+    for_each_thread_context(&drain_lineage_visitor, &lineage_state);
+    if (lineage_state.count > 0) {
+      write_lineage_events(lineage_batch.data(), lineage_state.count);
+    }
+
     sleep_interruptible(running_, interval_ms_);
+  }
+
+  // 关停前最后排空一次：stop() 先 join 本线程，再关闭 socket。
+  if (fd_ >= 0) {
+    DrainState state;
+    state.out = batch.data();
+    state.capacity = batch.size();
+    state.count = 0;
+    for_each_thread_context(&drain_visitor, &state);
+    if (state.count > 0) write_events(batch.data(), state.count);
+
+    LineageDrainState lineage_state;
+    lineage_state.out = lineage_batch.data();
+    lineage_state.capacity = lineage_batch.size();
+    lineage_state.count = 0;
+    for_each_thread_context(&drain_lineage_visitor, &lineage_state);
+    if (lineage_state.count > 0) {
+      write_lineage_events(lineage_batch.data(), lineage_state.count);
+    }
   }
 }
 
@@ -217,6 +260,70 @@ void Sender::write_events(const Event* events, size_t count) noexcept {
     }
   }
 
+  write_buffer(buffer, prepared, lost);
+}
+
+void Sender::write_lineage_events(const LineageEvent* events,
+                                  size_t count) noexcept {
+  static const char* kKinds[] = {"str", "int", "float", "bool", "bytes",
+                                 "opaque"};
+  std::string buffer;
+  buffer.reserve(count * 200);
+  size_t prepared = 0;
+  size_t lost = 0;
+
+  for (size_t i = 0; i < count; ++i) {
+    const LineageEvent& ev = events[i];
+    const bool is_state =
+        ev.type == static_cast<uint16_t>(LineageType::kState);
+    common::Event out;
+    out.type = is_state ? "state" : "lineage";
+    out.time_ns = ev.wall_ns;
+    out.mono_ns = ev.mono_ns;
+    if (valid(ev.trace)) {
+      out.trace = common::hex128(ev.trace.hi, ev.trace.lo);
+    }
+    if (ev.span != 0) out.span = common::hex64(ev.span);
+    if (ev.parent_span != 0) out.parent = common::hex64(ev.parent_span);
+    out.service = service_;
+    out.instance = instance_;
+    out.version = version_;
+    out.pid = static_cast<int32_t>(pid_);
+    out.tid = static_cast<int32_t>(ev.thread_id);
+    if (ev.run_id != nullptr) out.run_id = ev.run_id;
+    out.iteration_id = ev.iteration_id;
+    if (is_state) {
+      if (ev.device != nullptr) out.device = ev.device;
+      if (ev.state != nullptr) out.state = ev.state;
+      out.name = "state";
+    } else {
+      out.name = ev.field != nullptr ? ev.field : "field";
+      common::DataRef d;
+      if (ev.object != nullptr) d.object = ev.object;
+      if (ev.field != nullptr) d.field = ev.field;
+      d.dir = ev.dir == 0 ? "in" : (ev.dir == 1 ? "out" : "local");
+      d.kind = ev.kind < 6 ? kKinds[ev.kind] : "str";
+      d.value_hash = common::hex64(ev.value_hash);
+      d.value_len = ev.value_len;
+      d.value.assign(ev.value, ::strnlen(ev.value, sizeof(ev.value)));
+      d.reason = "head";
+      out.data.push_back(d);
+    }
+    try {
+      buffer += common::to_json(out).dump(
+          -1, ' ', false, common::json::error_handler_t::replace);
+      buffer.push_back('\n');
+      ++prepared;
+    } catch (...) {
+      ++lost;
+    }
+  }
+
+  write_buffer(buffer, prepared, lost);
+}
+
+void Sender::write_buffer(const std::string& buffer, size_t prepared,
+                          size_t lost) noexcept {
   if (prepared == 0) {
     dropped_.fetch_add(lost);
     return;

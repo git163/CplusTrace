@@ -13,6 +13,7 @@
       <button data-view="overview" class="active">总览</button>
       <button data-view="traces">调用链</button>
       <button data-view="topology">服务拓扑</button>
+      <button data-view="lineage">数据血缘</button>
       <button data-view="logs">日志</button>
       <button data-view="clusters">日志聚类</button>
       <button data-view="services">服务</button>
@@ -94,6 +95,33 @@
       </div>
       <div class="panel" id="topology-graph"><p class="muted">加载中…</p></div>
       <div class="panel" id="topology-result"></div>
+    </section>
+
+    <!-- 数据血缘 -->
+    <section id="view-lineage" class="view">
+      <div class="toolbar">
+        <h2>数据血缘 / 根因定位</h2>
+        <button id="lineage-refresh">刷新</button>
+        <span class="muted">按 run 查看闸门（状态/计数/身份/时序）与根因链</span>
+      </div>
+      <div class="grid2">
+        <div class="panel">
+          <h3>作业运行</h3>
+          <div id="lineage-runs"><p class="muted">加载中…</p></div>
+        </div>
+        <div class="panel">
+          <h3>前置闸门</h3>
+          <div id="lineage-gates"><p class="muted">选择一个 run</p></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>根因分析</h3>
+        <div id="lineage-rca"><p class="muted">选择一个 run</p></div>
+      </div>
+      <div class="panel">
+        <h3>实例血缘图</h3>
+        <div id="lineage-graph"><p class="muted">选择一个 run</p></div>
+      </div>
     </section>
 
     <!-- 日志 -->

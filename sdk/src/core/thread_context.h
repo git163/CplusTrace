@@ -39,6 +39,8 @@ struct ThreadContext {
   ~ThreadContext() noexcept;
 
   RingBuffer<Event, kRingCapacity> ring;
+  // 血缘独立车道：容量小、只有显式埋点时才写入，避免撑大热路径。
+  RingBuffer<LineageEvent, 64> lineage_ring;
   SpanFrame stack[kMaxSpanDepth];
   int       depth          = 0;
   int       suppress_depth = 0;  // >0 表示当前处于未采样 trace 内
@@ -47,6 +49,8 @@ struct ThreadContext {
   uint64_t  rng            = 0;
   const char* request_id   = nullptr;  // 当前请求关联 ID（线程本地）
   const char* task_id      = nullptr;
+  const char* run_id       = nullptr;  // 血缘：当前作业运行
+  uint64_t    iteration_id = 0;        // 血缘：当前迭代序号
 };
 
 inline ThreadContext::ThreadContext() noexcept

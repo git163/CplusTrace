@@ -2060,6 +2060,248 @@
     }
   }
 
+  // ------------------------------------------------------------ 数据血缘
+  let lineageSelectedRun = "";
+
+  async function loadLineage() {
+    const box = $("lineage-runs");
+    try {
+      const runs = await api("/api/lineage/runs?limit=100");
+      if (!runs.length) {
+        box.innerHTML = '<p class="muted">暂无血缘数据。运行 examples/industrial/run_demo.py 生成。</p>';
+        return;
+      }
+      box.innerHTML = runs
+        .map(
+          (r) =>
+            '<div><a href="#" data-run="' + esc(r.run_id) + '">' + esc(r.run_id) +
+            '</a> <span class="muted">迭代 ' + r.iterations + " · 记录 " + r.records + "</span></div>"
+        )
+        .join("");
+      box.querySelectorAll("a[data-run]").forEach((a) =>
+        a.addEventListener("click", (e) => {
+          e.preventDefault();
+          selectLineageRun(a.getAttribute("data-run"));
+        })
+      );
+      const target =
+        lineageSelectedRun && runs.some((r) => r.run_id === lineageSelectedRun)
+          ? lineageSelectedRun
+          : runs[0].run_id;
+      selectLineageRun(target);
+    } catch (err) {
+      box.innerHTML = '<p class="muted">' + esc(err.message) + "</p>";
+    }
+  }
+
+  async function selectLineageRun(runId) {
+    lineageSelectedRun = runId;
+    await loadLineageGates(runId);
+    await loadLineageRca(runId);
+  }
+
+  async function loadLineageGates(runId) {
+    const box = $("lineage-gates");
+    try {
+      const data = await api("/api/lineage/gates?run_id=" + encodeURIComponent(runId));
+      const summary = data.summary || {};
+      const rows = ["G0", "G1", "G2", "G3"]
+        .map((g) => {
+          const s = summary[g] || {};
+          return "<tr><td>" + g + "</td><td>" + (s.passed ? "✔ 通过" : "✘ 命中") +
+            "</td><td>" + (s.failed_iterations || 0) + "</td></tr>";
+        })
+        .join("");
+      let detail = "";
+      for (const it of data.iterations || []) {
+        if (!it.first_failed) continue;
+        detail =
+          '<p class="muted">首个失败迭代 ' + it.iteration_id + "：</p>" +
+          it.gates
+            .map(
+              (g) =>
+                "<div>" + (g.passed ? "✔" : "✘") + " <b>" + esc(g.gate) + "</b> " +
+                esc(g.check) + " — " + esc(g.detail) + "</div>"
+            )
+            .join("");
+        break;
+      }
+      box.innerHTML =
+        "<table><thead><tr><th>闸门</th><th>结果</th><th>失败迭代</th></tr></thead><tbody>" +
+        rows + "</tbody></table>" + detail;
+    } catch (err) {
+      box.innerHTML = '<p class="muted">' + esc(err.message) + "</p>";
+    }
+  }
+
+  async function loadLineageRca(runId) {
+    const box = $("lineage-rca");
+    try {
+      const r = await api("/api/lineage/rca?run_id=" + encodeURIComponent(runId));
+      const cands = (r.candidates || [])
+        .map(
+          (c) =>
+            "<li><b>" + esc(c.subject) + "</b> score=" + (c.score || 0).toFixed(2) +
+            " — " + esc((c.reasons || []).join("；")) + "</li>"
+        )
+        .join("");
+      const devs = (r.deviations || [])
+        .map(
+          (d) =>
+            "<li>" + esc(d.object) + "/" + esc(d.field) + " = " + esc(d.value) +
+            "（基线占比 " + ((d.baseline_ratio || 0) * 100).toFixed(0) + "%，共 " +
+            d.total + " 次）</li>"
+        )
+        .join("");
+      const unk = (r.unknowns || []).map((u) => "<li>" + esc(u) + "</li>").join("");
+      box.innerHTML =
+        "<p><b>verdict</b>: " + esc(r.verdict) + "　<b>confidence</b>: " +
+        (r.confidence || 0).toFixed(2) + "</p><p>" + esc(r.narrative) + "</p>" +
+        "<h4>候选</h4><ul>" + (cands || '<li class="muted">无</li>') + "</ul>" +
+        "<h4>偏离基线</h4><ul>" + (devs || '<li class="muted">无</li>') + "</ul>" +
+        "<h4>待确认</h4><ul>" + (unk || '<li class="muted">无</li>') + "</ul>";
+      loadLineageGraph(runId, r.iteration_id || 0);
+    } catch (err) {
+      box.innerHTML = '<p class="muted">' + esc(err.message) + "</p>";
+    }
+  }
+
+  // 按服务分层布局：边的 from → to 决定层级，环做有限轮松弛。
+  function lineageLayout(graph) {
+    const services = {};
+    const edges = graph.edges || [];
+    (graph.nodes || []).forEach((n) => {
+      if (!services[n.service]) {
+        services[n.service] = { name: n.service, level: 0, fields: [], trace: "" };
+      }
+      const node = services[n.service];
+      if (n.trace && !node.trace) node.trace = n.trace;
+      const mark = n.dir === "in" ? "←" : n.dir === "out" ? "→" : "·";
+      const label = mark + " " + n.object + "." + n.field;
+      if (node.fields.indexOf(label) < 0) node.fields.push(label);
+    });
+    const names = Object.keys(services);
+    for (let round = 0; round < names.length; ++round) {
+      let changed = false;
+      edges.forEach((e) => {
+        const a = services[e.from_service];
+        const b = services[e.to_service];
+        if (a && b && b.level <= a.level) {
+          b.level = a.level + 1;
+          changed = true;
+        }
+      });
+      if (!changed) break;
+    }
+    const byLevel = {};
+    names.forEach((name) => {
+      const level = Math.min(services[name].level, Math.max(0, names.length - 1));
+      (byLevel[level] = byLevel[level] || []).push(services[name]);
+    });
+    const levels = Object.keys(byLevel).map(Number).sort((a, b) => a - b);
+    const maxLevel = levels.length ? levels[levels.length - 1] : 0;
+    const boxW = 210;
+    const gapX = 90;
+    const width = Math.max(720, 40 + (maxLevel + 1) * (boxW + gapX));
+    let maxRows = 1;
+    levels.forEach((level) => {
+      maxRows = Math.max(maxRows, byLevel[level].length);
+    });
+    const height = Math.max(300, 40 + maxRows * 130);
+    levels.forEach((level) => {
+      const list = byLevel[level];
+      list.forEach((node, index) => {
+        node.x = 30 + level * (boxW + gapX) + boxW / 2;
+        node.y = 40 + ((index + 1) * (height - 60)) / (list.length + 1);
+      });
+    });
+    return { services, edges, width, height, boxW };
+  }
+
+  function lineageSvg(graph) {
+    if (!(graph.nodes || []).length) return empty("暂无血缘节点（该迭代没有字段事件）");
+    const layout = lineageLayout(graph);
+    const ns = "http://www.w3.org/2000/svg";
+    let svg =
+      '<svg class="topo-svg" viewBox="0 0 ' + layout.width + " " + layout.height +
+      '" xmlns="' + ns + '"><defs><marker id="lineage-arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#8494a8"/></marker></defs>';
+    layout.edges.forEach((edge) => {
+      const a = layout.services[edge.from_service];
+      const b = layout.services[edge.to_service];
+      if (!a || !b) return;
+      svg +=
+        '<line class="topo-edge" x1="' + (a.x + layout.boxW / 2) + '" y1="' + a.y +
+        '" x2="' + (b.x - layout.boxW / 2) + '" y2="' + b.y +
+        '" stroke-width="1.6" marker-end="url(#lineage-arrow)"><title>' +
+        esc(edge.from_service + "." + edge.from_field + " → " + edge.to_service +
+            "." + edge.to_field + " (" + edge.relation + ")") +
+        "</title></line>";
+      const mx = (a.x + layout.boxW / 2 + b.x - layout.boxW / 2) / 2;
+      const my = (a.y + b.y) / 2;
+      svg += '<text x="' + mx + '" y="' + (my - 4) +
+        '" style="font-size:10px;fill:#8494a8">' + esc(edge.from_field) + "</text>";
+    });
+    Object.keys(layout.services).forEach((name) => {
+      const node = layout.services[name];
+      const shown = node.fields.slice(0, 5);
+      const boxH = 26 + shown.length * 14 + (node.fields.length > shown.length ? 12 : 0);
+      const x = node.x - layout.boxW / 2;
+      const y = node.y - boxH / 2;
+      svg +=
+        '<g class="lineage-node" data-trace="' + esc(node.trace) + '" style="cursor:' +
+        (node.trace ? "pointer" : "default") + '">' +
+        '<rect class="topo-node" x="' + x + '" y="' + y + '" width="' + layout.boxW +
+        '" height="' + boxH + '" rx="6"/>' +
+        '<text class="topo-label" x="' + node.x + '" y="' + (y + 15) +
+        '" style="font-weight:600">' + esc(name) + "</text>";
+      shown.forEach((f, i) => {
+        svg += '<text x="' + (x + 8) + '" y="' + (y + 29 + i * 14) +
+          '" style="font-size:10px;fill:#8494a8">' + esc(f) + "</text>";
+      });
+      if (node.fields.length > shown.length) {
+        svg += '<text x="' + (x + 8) + '" y="' + (y + 29 + shown.length * 14) +
+          '" style="font-size:10px;fill:#8494a8">…</text>';
+      }
+      svg += "</g>";
+    });
+    return svg + "</svg>";
+  }
+
+  async function loadLineageGraph(runId, iterationId) {
+    const box = $("lineage-graph");
+    try {
+      const g = await api(
+        "/api/lineage/graph?run_id=" + encodeURIComponent(runId) +
+        "&iteration_id=" + encodeURIComponent(iterationId)
+      );
+      const rows = (g.nodes || [])
+        .map(
+          (n) =>
+            "<tr><td>" + esc(n.service) + "</td><td>" + esc(n.object) + "</td><td>" +
+            esc(n.field) + "</td><td>" + esc(n.dir) + "</td><td>" +
+            esc(n.value || n.value_hash) + "</td><td>" +
+            (n.trace ? '<a href="#" data-trace="' + esc(n.trace) + '">查看链路</a>' : "") +
+            "</td></tr>"
+        )
+        .join("");
+      box.innerHTML =
+        '<p class="muted">点击服务方框或「查看链路」可跳转到该迭代的 trace 链路图。</p>' +
+        lineageSvg(g) +
+        "<h4>字段明细</h4><table><thead><tr><th>服务</th><th>对象</th><th>字段</th><th>方向</th><th>值</th><th></th></tr></thead><tbody>" +
+        rows + "</tbody></table>";
+      box.querySelectorAll("[data-trace]").forEach((el) =>
+        el.addEventListener("click", (ev) => {
+          const t = el.getAttribute("data-trace");
+          if (!t) return;
+          ev.preventDefault();
+          openTrace(t);
+        })
+      );
+    } catch (err) {
+      box.innerHTML = '<p class="muted">' + esc(err.message) + "</p>";
+    }
+  }
+
   // ------------------------------------------------------------ 路由与初始化
   function showView(name) {
     if (!document.getElementById("view-" + name)) name = "overview";
@@ -2080,6 +2322,7 @@
       },
       traces: searchTraces,
       topology: loadTopology,
+      lineage: loadLineage,
       logs: () => {
         const fingerprint = state.pendingLogFingerprint;
         state.pendingLogFingerprint = "";
@@ -2113,6 +2356,7 @@
     $("inspection-run").addEventListener("click", safeRun(loadInspection));
     $("trace-search").addEventListener("click", safeRun(searchTraces));
     $("topology-refresh").addEventListener("click", safeRun(loadTopology));
+    $("lineage-refresh").addEventListener("click", safeRun(loadLineage));
     $("trace-query").addEventListener("keydown", (e) => {
       if (e.key === "Enter") safeRun(searchTraces)();
     });

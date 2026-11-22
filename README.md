@@ -20,6 +20,9 @@ C++ 系统（10–50 节点、50–200 进程），把「人工翻多机多进�
 - **链路时序还原专题 PPT**：[docs/presentation/trace-timeline.pptx](docs/presentation/trace-timeline.pptx)
 - 竞品对照与取舍：[docs/competitive-analysis.md](docs/competitive-analysis.md)
 - 观测云深入对标与本轮落地：[docs/guance-benchmark.md](docs/guance-benchmark.md)
+- **数据血缘与跨进程参数溯源**：[docs/data-lineage-design.md](docs/data-lineage-design.md)
+- 工业控制闭环示例（7 进程 + 根因定位）：[examples/industrial/README.md](examples/industrial/README.md)
+- 同上 C++ 版（走真实 SDK）：[examples/industrial_cpp/README.md](examples/industrial_cpp/README.md)
 - Web UI 浏览器回归记录：[docs/ui-test-report.md](docs/ui-test-report.md)
 - 生产零影响约束：[docs/production-safety.md](docs/production-safety.md)
 - 部署与运维：[docs/deployment.md](docs/deployment.md)
@@ -196,6 +199,12 @@ python3 examples/scenarios/demo.py --scenario all --keep
 
 # 三个真实进程的跨进程链路 + SVG 树图
 python3 examples/multiprocess/run_demo.py
+
+# 工业控制闭环：7 进程 + 数据血缘闸门 + 根因定位（无错误码也能定位）
+python3 examples/industrial/run_demo.py --start-server --server-bin build/vmon_server
+
+# 同上，但走真实 C++ SDK → Agent → Server
+python3 examples/industrial_cpp/run_demo.py --fault identity
 ```
 
 每个场景的观察顺序与产出见 [docs/scenario-cookbook.md](docs/scenario-cookbook.md)。
@@ -303,6 +312,10 @@ client.close()
 | `GET /api/logs` / `GET /api/logs/clusters` | 日志检索（含 node/task_id/时间窗）/ 模板聚类 |
 | `GET /api/metrics?name=` | 指标序列查询 |
 | `GET /api/topology` | 服务拓扑与强弱边 |
+| `GET /api/lineage/runs` | 数据血缘作业运行列表 |
+| `GET /api/lineage/gates?run_id=` | 前置闸门（状态/计数/身份/时序） |
+| `GET /api/lineage/rca?run_id=` | 根因分析（候选 + 叙述 + 证据 + unknowns） |
+| `GET /api/lineage/graph?run_id=&iteration_id=` | 单次迭代的跨进程实例血缘图 |
 | `GET /api/services` / `GET /api/nodes` | 服务/实例、节点/进程快照 |
 | `GET /api/events` / `POST /api/events/{id}/ack` / `resolve` | 事件筛选、生命周期与同指纹分组 |
 | `GET /api/issues` / `POST /api/issues/{id}` | 异常追踪（聚合/指派/ack/resolve） |

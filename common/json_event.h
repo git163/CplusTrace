@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include <nlohmann/json.hpp>
 
@@ -49,8 +50,90 @@ inline uint64_t parse_hex64(const std::string& s) {
   return v;
 }
 
+// 数据血缘字段：一次进程边界上的字段值指纹。
+//
+// 设计要点（见 docs/data-lineage-design.md）：
+//   - 只存语义指纹 value_hash（64/128-bit hex），原文仅出错时短时保留；
+//   - object/field 用稳定命名（frame_id / motion.settle_time），不做高基数索引；
+//   - dir 区分输入/输出，op 记录产生或消费该字段的变换。
+struct DataRef {
+  std::string object;      // 逻辑对象：frame / order / motion
+  std::string field;       // 字段名：frame_id / settle_time_ns
+  std::string dir;         // in / out / local
+  std::string kind;        // str / int / float / bool / bytes / json / opaque
+  std::string value_hash;  // 语义指纹（hex）
+  std::string shape_hash;  // 结构指纹（可选）
+  std::string value;       // 可选原文（已截断/脱敏，仅 tail/error 保留）
+  uint32_t value_len = 0;
+  bool truncated = false;
+  bool redacted = false;
+  bool opaque = false;
+  std::string schema_hash;
+  std::string op;          // 产生/消费该字段的变换
+  std::string reason;      // head / tail_error / manual
+};
+
+inline nlohmann::json dataref_to_json(const DataRef& d) {
+  nlohmann::json j;
+  if (!d.object.empty()) j["object"] = d.object;
+  if (!d.field.empty()) j["field"] = d.field;
+  if (!d.dir.empty()) j["dir"] = d.dir;
+  if (!d.kind.empty()) j["kind"] = d.kind;
+  if (!d.value_hash.empty()) j["value_hash"] = d.value_hash;
+  if (!d.shape_hash.empty()) j["shape_hash"] = d.shape_hash;
+  if (!d.value.empty()) j["value"] = d.value;
+  if (d.value_len != 0) j["value_len"] = d.value_len;
+  if (d.truncated) j["truncated"] = true;
+  if (d.redacted) j["redacted"] = true;
+  if (d.opaque) j["opaque"] = true;
+  if (!d.schema_hash.empty()) j["schema_hash"] = d.schema_hash;
+  if (!d.op.empty()) j["op"] = d.op;
+  if (!d.reason.empty()) j["reason"] = d.reason;
+  return j;
+}
+
+inline DataRef dataref_from_json(const nlohmann::json& j) {
+  DataRef d;
+  if (!j.is_object()) return d;
+  auto str = [&j](const char* key) -> std::string {
+    auto it = j.find(key);
+    if (it == j.end() || it->is_null()) return std::string();
+    if (it->is_string()) return it->get<std::string>();
+    return it->dump();
+  };
+  d.object = str("object");
+  d.field = str("field");
+  d.dir = str("dir");
+  d.kind = str("kind");
+  d.value_hash = str("value_hash");
+  d.shape_hash = str("shape_hash");
+  d.value = str("value");
+  d.value_len = static_cast<uint32_t>(j.value("value_len", 0));
+  d.truncated = j.value("truncated", false);
+  d.redacted = j.value("redacted", false);
+  d.opaque = j.value("opaque", false);
+  d.schema_hash = str("schema_hash");
+  d.op = str("op");
+  d.reason = str("reason");
+  return d;
+}
+
+// 64 位 FNV-1a：热路径可用的值指纹（不用于安全场景）。
+inline uint64_t fnv1a64(const std::string& text) {
+  uint64_t hash = 1469598103934665603ull;
+  for (unsigned char c : text) {
+    hash ^= static_cast<uint64_t>(c);
+    hash *= 1099511628211ull;
+  }
+  return hash;
+}
+
+inline std::string value_fingerprint(const std::string& text) {
+  return hex64(fnv1a64(text));
+}
+
 struct Event {
-  std::string type;          // span_begin / span_end / log / heartbeat / metric / profile / crash / event
+  std::string type;          // span_begin / span_end / log / heartbeat / metric / profile / crash / event / lineage / state
   uint64_t    time_ns = 0;   // wall clock
   uint64_t    mono_ns = 0;   // monotonic
   std::string trace;
@@ -70,6 +153,14 @@ struct Event {
   std::string request_id;
   std::string task_id;
   std::string error_code;
+
+  // 血缘/迭代/状态（仅 type=lineage / type=state 使用）。
+  std::string run_id;        // 一次作业运行
+  uint64_t iteration_id = 0; // 迭代序号（0 表示不适用）
+  std::string device;        // 设备名（状态事件）
+  std::string state;         // 设备当前状态（状态事件）
+  std::vector<DataRef> data; // 边界字段（type=lineage）
+
   std::unordered_map<std::string, std::string> attrs;
 
   bool is_span_begin() const { return type == "span_begin"; }
@@ -114,6 +205,15 @@ inline json to_json(const Event& e) {
   if (!e.request_id.empty()) j["request_id"] = e.request_id;
   if (!e.task_id.empty()) j["task_id"] = e.task_id;
   if (!e.error_code.empty()) j["error_code"] = e.error_code;
+  if (!e.run_id.empty()) j["run_id"] = e.run_id;
+  if (e.iteration_id != 0) j["iteration_id"] = e.iteration_id;
+  if (!e.device.empty()) j["device"] = e.device;
+  if (!e.state.empty()) j["state"] = e.state;
+  if (!e.data.empty()) {
+    json arr = json::array();
+    for (const DataRef& d : e.data) arr.push_back(dataref_to_json(d));
+    j["data"] = arr;
+  }
   if (!e.attrs.empty()) {
     json attrs = json::object();
     for (const auto& kv : e.attrs) attrs[kv.first] = kv.second;
@@ -157,6 +257,15 @@ inline Event from_json(const json& j) {
   e.request_id = get_str("request_id");
   e.task_id = get_str("task_id");
   e.error_code = get_str("error_code");
+  e.run_id = get_str("run_id");
+  e.iteration_id = static_cast<uint64_t>(get_i64("iteration_id"));
+  e.device = get_str("device");
+  e.state = get_str("state");
+
+  auto data_it = j.find("data");
+  if (data_it != j.end() && data_it->is_array()) {
+    for (const auto& item : *data_it) e.data.push_back(dataref_from_json(item));
+  }
 
   auto attrs_it = j.find("attrs");
   if (attrs_it != j.end() && attrs_it->is_object()) {

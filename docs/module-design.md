@@ -472,6 +472,7 @@ GET /api/traces/{id}
 | 新存储后端 | `server/src/forwarder.*` | 增加转发目标，或替换 Store |
 | 新 RPC 协议 | `adapters/` | 实现注入/提取，复用 SpanContext |
 | 新分析视图 | `server/src/trace_builder.*` / `web/app.js` | 新增只读接口 + 视图 |
+| 数据血缘 / 根因分析 | `server/src/lineage.*` | 发 `type=lineage`/`type=state` 事件；闸门与 RCA 在 LineageStore |
 | 新客户端语言 | `clients/<lang>` | 生成 traceparent，调用 `/v1/ingest` |
 | 前端事件聚合 | BFF/网关 | 接收 `clients/web` 的回调，统一鉴权转发 |
 
