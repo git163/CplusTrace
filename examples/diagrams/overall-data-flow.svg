@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="400" viewBox="0 0 1120 400" style="max-width:100%;height:auto;background:#ffffff" role="img" aria-label="CplusTrace 示例统一数据流">
+<title>CplusTrace 示例统一数据流</title>
+<defs>
+<marker id="m-gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#64748b"/></marker>
+<marker id="m-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#2563eb"/></marker>
+<marker id="m-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#0d9488"/></marker>
+<marker id="m-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#16a34a"/></marker>
+<marker id="m-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#ea580c"/></marker>
+<marker id="m-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#dc2626"/></marker>
+<marker id="m-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#7c3aed"/></marker>
+<marker id="m-slate" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#334155"/></marker>
+</defs>
+<text x="40" y="44" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="21" font-weight="700" fill="#0f172a" text-anchor="start">CplusTrace 示例：统一采集数据流</text>
+<text x="40" y="70" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="13" font-weight="normal" fill="#475569" text-anchor="start">所有示例共用同一条链路：业务线程只写本地环，后台线程批量上报</text>
+<rect x="40" y="110" width="220" height="130" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="1.6"/>
+<text x="150.0" y="172.0" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">业务进程</text>
+<text x="150.0" y="190.0" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle">hello / multiprocess</text>
+<text x="150.0" y="206.0" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle">faultlab / industrial</text>
+<rect x="350" y="110" width="210" height="130" rx="10" fill="#ecfeff" stroke="#0d9488" stroke-width="1.6"/>
+<text x="455.0" y="172.0" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">vmon-agent</text>
+<text x="455.0" y="190.0" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle">UDS 接入 · WAL</text>
+<text x="455.0" y="206.0" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle">进程/主机采集 · 控制通道</text>
+<rect x="650" y="110" width="210" height="130" rx="10" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.6"/>
+<text x="755.0" y="172.0" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">vmon-server</text>
+<text x="755.0" y="190.0" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle">内存存储 · 链路还原</text>
+<text x="755.0" y="206.0" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle">日志聚类 · 诊断/证据包</text>
+<rect x="910" y="84" width="170" height="58" rx="10" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.6"/>
+<text x="995.0" y="118.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">Web UI</text>
+<text x="995.0" y="136.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle">浏览器排障</text>
+<rect x="910" y="156" width="170" height="58" rx="10" fill="#fff7ed" stroke="#ea580c" stroke-width="1.6"/>
+<text x="995.0" y="190.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">vmonctl / MCP</text>
+<text x="995.0" y="208.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle">CLI / 内部 AI</text>
+<rect x="910" y="228" width="170" height="58" rx="10" fill="#fef2f2" stroke="#dc2626" stroke-width="1.6"/>
+<text x="995.0" y="262.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">证据包 / 告警</text>
+<text x="995.0" y="280.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle">脱敏 + 校验和</text>
+<line x1="260" y1="175" x2="350" y2="175" stroke="#2563eb" stroke-width="1.8" marker-end="url(#m-blue)"/>
+<text x="305" y="164" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">UDS JSONL</text>
+<line x1="560" y1="175" x2="650" y2="175" stroke="#0d9488" stroke-width="1.8" marker-end="url(#m-teal)"/>
+<text x="605" y="164" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">HTTP NDJSON</text>
+<path d="M 860,175 L 885,175 L 885,113 L 910,113" fill="none" stroke="#16a34a" stroke-width="1.8" marker-end="url(#m-green)"/>
+<path d="M 860,175 L 885,175 L 885,185 L 910,185" fill="none" stroke="#16a34a" stroke-width="1.8" marker-end="url(#m-green)"/>
+<path d="M 860,175 L 885,175 L 885,257 L 910,257" fill="none" stroke="#16a34a" stroke-width="1.8" marker-end="url(#m-green)"/>
+<rect x="40" y="300" width="1040" height="72" rx="12" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.4"/>
+<text x="62" y="330" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="13" font-weight="normal" fill="#334155" text-anchor="start">fail-open：Agent 离线 / 队列满时业务继续运行；WAL 断网续传，恢复后补传。</text>
+<text x="62" y="354" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="13" font-weight="normal" fill="#334155" text-anchor="start">错误与慢请求 100% 保留；INFO 采样 / 去重 / 模板聚类，先降噪再定位。</text>
+</svg>

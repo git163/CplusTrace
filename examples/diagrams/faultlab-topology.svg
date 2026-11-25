@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="510" viewBox="0 0 1120 510" style="max-width:100%;height:auto;background:#ffffff" role="img" aria-label="faultlab 进程拓扑与故障注入点">
+<title>faultlab 进程拓扑与故障注入点</title>
+<defs>
+<marker id="m-gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#64748b"/></marker>
+<marker id="m-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#2563eb"/></marker>
+<marker id="m-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#0d9488"/></marker>
+<marker id="m-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#16a34a"/></marker>
+<marker id="m-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#ea580c"/></marker>
+<marker id="m-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#dc2626"/></marker>
+<marker id="m-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#7c3aed"/></marker>
+<marker id="m-slate" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#334155"/></marker>
+</defs>
+<text x="40" y="44" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="21" font-weight="700" fill="#0f172a" text-anchor="start">faultlab：进程拓扑与故障注入点</text>
+<text x="40" y="70" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="13" font-weight="normal" fill="#475569" text-anchor="start">一个二进制、六种角色；同一个 --fault 参数控制各角色的故障行为</text>
+<rect x="40" y="110" width="150" height="56" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="1.6"/>
+<text x="115.0" y="143.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">driver</text>
+<text x="115.0" y="161.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle">压测客户端</text>
+<rect x="250" y="110" width="160" height="56" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="1.6"/>
+<text x="330.0" y="143.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">gateway</text>
+<text x="330.0" y="161.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle">入口 / 状态码</text>
+<rect x="470" y="110" width="160" height="56" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="1.6"/>
+<text x="550.0" y="143.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">order</text>
+<text x="550.0" y="161.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle">编排 + 重试</text>
+<rect x="720" y="110" width="210" height="64" rx="10" fill="#fff7ed" stroke="#ea580c" stroke-width="1.6"/>
+<text x="825.0" y="139.0" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">inventory</text>
+<text x="825.0" y="157.0" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle">slow / logstorm</text>
+<text x="825.0" y="173.0" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle">隔次 503</text>
+<rect x="720" y="186" width="210" height="64" rx="10" fill="#fef2f2" stroke="#dc2626" stroke-width="1.6"/>
+<text x="825.0" y="223.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">payment</text>
+<text x="825.0" y="241.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle">payment 拒绝</text>
+<rect x="470" y="268" width="160" height="56" rx="10" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.6"/>
+<text x="550.0" y="301.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">worker</text>
+<text x="550.0" y="319.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle">后台任务</text>
+<rect x="720" y="268" width="210" height="56" rx="10" fill="#fef2f2" stroke="#dc2626" stroke-width="1.6" stroke-dasharray="6 4"/>
+<text x="825.0" y="301.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">SIGSEGV</text>
+<text x="825.0" y="319.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle">崩溃处理器落盘</text>
+<line x1="190" y1="138" x2="250" y2="138" stroke="#2563eb" stroke-width="1.8" marker-end="url(#m-blue)"/>
+<text x="220" y="127" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">HTTP</text>
+<line x1="410" y1="138" x2="470" y2="138" stroke="#2563eb" stroke-width="1.8" marker-end="url(#m-blue)"/>
+<text x="440" y="127" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">traceparent</text>
+<path d="M 630,138 L 675,138 L 675,142 L 720,142" fill="none" stroke="#ea580c" stroke-width="1.8" marker-end="url(#m-orange)"/>
+<text x="690" y="104" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">重试 3 次</text>
+<path d="M 630,150 L 675,150 L 675,218 L 720,218" fill="none" stroke="#dc2626" stroke-width="1.8" marker-end="url(#m-red)"/>
+<text x="700" y="178" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="start" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">业务调用</text>
+<line x1="630" y1="296" x2="720" y2="296" stroke="#dc2626" stroke-width="1.8" stroke-dasharray="6 4" marker-end="url(#m-red)"/>
+<text x="675" y="285" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">crash 注入</text>
+<rect x="30" y="96" width="940" height="240" rx="16" fill="none" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="6 4"/>
+<path d="M 500,336 L 500,374 L 175,374 L 175,400" fill="none" stroke="#0d9488" stroke-width="1.8" stroke-dasharray="6 4" marker-end="url(#m-teal)"/>
+<text x="360" y="366" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="start" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">所有进程：SDK 事件（UDS）</text>
+<rect x="60" y="400" width="230" height="70" rx="10" fill="#ecfeff" stroke="#0d9488" stroke-width="1.6"/>
+<text x="175.0" y="432.0" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">vmon-agent</text>
+<text x="175.0" y="450.0" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle">WAL · 采集 · 控制</text>
+<text x="175.0" y="466.0" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle">UDS 接入</text>
+<rect x="350" y="400" width="230" height="70" rx="10" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.6"/>
+<text x="465.0" y="432.0" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">vmon-server</text>
+<text x="465.0" y="450.0" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle">存储 · 还原 · 诊断</text>
+<text x="465.0" y="466.0" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle">证据包 · 告警</text>
+<rect x="640" y="400" width="260" height="70" rx="10" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.6"/>
+<text x="770.0" y="440.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">Web / 诊断 / 证据包</text>
+<text x="770.0" y="458.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle">按 trace_id / request_id 查询</text>
+<line x1="290" y1="435" x2="350" y2="435" stroke="#16a34a" stroke-width="1.8" marker-end="url(#m-green)"/>
+<text x="320" y="424" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">HTTP NDJSON</text>
+<line x1="580" y1="435" x2="640" y2="435" stroke="#16a34a" stroke-width="1.8" marker-end="url(#m-green)"/>
+</svg>

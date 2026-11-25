@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="450" viewBox="0 0 900 450" style="max-width:100%;height:auto;background:#ffffff" role="img" aria-label="hello 示例的 Span 树">
+<title>hello 示例的 Span 树</title>
+<defs>
+<marker id="m-gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#64748b"/></marker>
+<marker id="m-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#2563eb"/></marker>
+<marker id="m-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#0d9488"/></marker>
+<marker id="m-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#16a34a"/></marker>
+<marker id="m-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#ea580c"/></marker>
+<marker id="m-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#dc2626"/></marker>
+<marker id="m-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#7c3aed"/></marker>
+<marker id="m-slate" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#334155"/></marker>
+</defs>
+<text x="40" y="44" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="21" font-weight="700" fill="#0f172a" text-anchor="start">hello：demo-request-1 的 Span 树</text>
+<text x="40" y="70" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="13" font-weight="normal" fill="#475569" text-anchor="start">库存重试 2 次后失败；根 Span 标记 E_ORDER_FAILED，错误码沿树向上传播</text>
+<rect x="40" y="120" width="230" height="62" rx="10" fill="#fef2f2" stroke="#dc2626" stroke-width="1.6"/>
+<text x="155.0" y="156.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">Gateway/Handle</text>
+<text x="155.0" y="174.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle">E_ORDER_FAILED · 24 ms</text>
+<rect x="380" y="105" width="220" height="54" rx="10" fill="#f8fafc" stroke="#334155" stroke-width="1.6"/>
+<text x="490.0" y="137.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">Auth/Verify</text>
+<text x="490.0" y="155.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle">2 ms</text>
+<path d="M 270,151 L 325,151 L 325,132 L 380,132" fill="none" stroke="#334155" stroke-width="1.8" marker-end="url(#m-slate)"/>
+<rect x="380" y="165" width="220" height="54" rx="10" fill="#f8fafc" stroke="#334155" stroke-width="1.6"/>
+<text x="490.0" y="197.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">Order/Parse</text>
+<text x="490.0" y="215.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle">3 ms</text>
+<path d="M 270,151 L 325,151 L 325,192 L 380,192" fill="none" stroke="#334155" stroke-width="1.8" marker-end="url(#m-slate)"/>
+<rect x="380" y="225" width="220" height="54" rx="10" fill="#fef2f2" stroke="#dc2626" stroke-width="1.6"/>
+<text x="490.0" y="257.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">Inventory/Reserve</text>
+<text x="490.0" y="275.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle">E_INVENTORY_TIMEOUT · 24 ms</text>
+<path d="M 270,151 L 325,151 L 325,252 L 380,252" fill="none" stroke="#334155" stroke-width="1.8" marker-end="url(#m-slate)"/>
+<rect x="380" y="300" width="220" height="54" rx="10" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.6" stroke-dasharray="5 4"/>
+<text x="490.0" y="332.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">Payment/Charge</text>
+<text x="490.0" y="350.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle">成功分支才执行</text>
+<path d="M 270,151 L 325,151 L 325,327 L 380,327" fill="none" stroke="#334155" stroke-width="1.8" marker-end="url(#m-slate)"/>
+<rect x="380" y="365" width="220" height="54" rx="10" fill="#f8fafc" stroke="#334155" stroke-width="1.6"/>
+<text x="490.0" y="397.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">Response/Build</text>
+<text x="490.0" y="415.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle">2 ms</text>
+<path d="M 270,151 L 325,151 L 325,392 L 380,392" fill="none" stroke="#334155" stroke-width="1.8" marker-end="url(#m-slate)"/>
+<rect x="690" y="225" width="170" height="54" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="1.6"/>
+<text x="775.0" y="257.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">Cache/Get</text>
+<text x="775.0" y="275.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle">4 ms</text>
+<path d="M 600,252 L 645,252 L 645,252 L 690,252" fill="none" stroke="#2563eb" stroke-width="1.8" marker-end="url(#m-blue)"/>
+<text x="645" y="292" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">缓存未命中后回源</text>
+</svg>

@@ -20,6 +20,11 @@ flowchart LR
 
 **数据流**（所有示例共用同一条采集链路）：
 
+![统一采集数据流](diagrams/overall-data-flow.svg)
+
+<details>
+<summary>Mermaid 源码（可编辑）</summary>
+
 ```mermaid
 flowchart LR
   BIZ["业务进程<br/>（链接 SDK）"] -->|"UDS JSONL"| AG["vmon-agent<br/>WAL / 采集 / 控制"]
@@ -28,6 +33,8 @@ flowchart LR
   SV --> CLI["vmonctl / MCP"]
   SV --> EV["证据包 / 告警"]
 ```
+
+</details>
 
 ## 1. 目录
 
@@ -40,6 +47,7 @@ flowchart LR
 | `industrial/` | 工业控制闭环（Python 版）：7 进程 + 数据血缘 + 根因定位 | `examples/industrial/run_demo.py` | [README](industrial/README.md) |
 | `industrial_cpp/` | 同上 C++ 版：走真实 SDK → Agent → Server | `examples/industrial_cpp/run_demo.py` | [README](industrial_cpp/README.md) |
 | `faultlab/` | **同一二进制的 5 类复杂故障 + 自动诊断报告**（超时/错误码/锁等待/日志风暴/崩溃） | `examples/faultlab/run_demo.py` | [README](faultlab/README.md) |
+| `diagrams/` | 原理框架、拓扑与时序 SVG 图（脚本生成，可离线/PPT 使用） | `python3 examples/diagrams/build_diagrams.py` | [README](diagrams/README.md) |
 | `screenshots/` | Web UI 截图素材（非可运行示例） | — | — |
 
 ## 2. 三分钟跑通

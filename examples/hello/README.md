@@ -52,6 +52,11 @@ sequenceDiagram
 
 **Span 树**：失败请求会跳过支付，根 Span 标记 `E_ORDER_FAILED`。
 
+![hello 示例 Span 树](../diagrams/hello-span-tree.svg)
+
+<details>
+<summary>Mermaid 源码（可编辑）</summary>
+
 ```mermaid
 flowchart TD
   G["Gateway/Handle"] --> A["Auth/Verify"]
@@ -61,6 +66,8 @@ flowchart TD
   G --> P["Payment/Charge（仅成功请求）"]
   G --> R["Response/Build"]
 ```
+
+</details>
 
 ## 2. 文件
 

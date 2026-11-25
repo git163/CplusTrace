@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="500" viewBox="0 0 1000 500" style="max-width:100%;height:auto;background:#ffffff" role="img" aria-label="http_backend 跨语言链路时序">
+<title>http_backend 跨语言链路时序</title>
+<defs>
+<marker id="m-gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#64748b"/></marker>
+<marker id="m-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#2563eb"/></marker>
+<marker id="m-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#0d9488"/></marker>
+<marker id="m-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#16a34a"/></marker>
+<marker id="m-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#ea580c"/></marker>
+<marker id="m-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#dc2626"/></marker>
+<marker id="m-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#7c3aed"/></marker>
+<marker id="m-slate" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#334155"/></marker>
+</defs>
+<text x="30" y="38" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="21" font-weight="700" fill="#0f172a" text-anchor="start">http_backend：跨语言链路续接</text>
+<rect x="5.0" y="58" width="130" height="46" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.6"/>
+<text x="70.0" y="86.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">Python / 浏览器</text>
+<text x="70.0" y="104.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle"></text>
+<line x1="70" y1="104" x2="70" y2="440" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="5 5"/>
+<rect x="165.0" y="58" width="130" height="46" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.6"/>
+<text x="230.0" y="86.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">BFF（可选）</text>
+<text x="230.0" y="104.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle"></text>
+<line x1="230" y1="104" x2="230" y2="440" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="5 5"/>
+<rect x="350.0" y="58" width="160" height="46" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.6"/>
+<text x="430.0" y="86.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">vmon_http_backend</text>
+<text x="430.0" y="104.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle"></text>
+<line x1="430" y1="104" x2="430" y2="440" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="5 5"/>
+<rect x="555.0" y="58" width="130" height="46" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.6"/>
+<text x="620.0" y="86.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">vmon-agent</text>
+<text x="620.0" y="104.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle"></text>
+<line x1="620" y1="104" x2="620" y2="440" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="5 5"/>
+<rect x="715.0" y="58" width="130" height="46" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.6"/>
+<text x="780.0" y="86.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">vmon-server</text>
+<text x="780.0" y="104.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle"></text>
+<line x1="780" y1="104" x2="780" y2="440" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="5 5"/>
+<rect x="865.0" y="58" width="130" height="46" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.6"/>
+<text x="930.0" y="86.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">Web UI</text>
+<text x="930.0" y="104.5" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#475569" text-anchor="middle"></text>
+<line x1="930" y1="104" x2="930" y2="440" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="5 5"/>
+<line x1="70" y1="150" x2="230" y2="150" stroke="#7c3aed" stroke-width="1.8" marker-end="url(#m-purple)"/>
+<text x="150.0" y="142" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#334155" text-anchor="middle" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">HTTP + traceparent + x-request-id</text>
+<line x1="230" y1="195" x2="430" y2="195" stroke="#7c3aed" stroke-width="1.8" marker-end="url(#m-purple)"/>
+<text x="330.0" y="187" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#334155" text-anchor="middle" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">转发同一 traceparent</text>
+<path d="M 430,240 L 500,240 L 500,272 L 430,272" fill="none" stroke="#2563eb" stroke-width="1.8" marker-end="url(#m-blue)"/>
+<text x="510" y="261" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#334155" text-anchor="start" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">context_from_traceparent → HTTP/echo Span</text>
+<line x1="430" y1="315" x2="620" y2="315" stroke="#0d9488" stroke-width="1.8" marker-end="url(#m-teal)"/>
+<text x="525.0" y="307" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#334155" text-anchor="middle" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">SDK 事件（UDS）</text>
+<line x1="620" y1="355" x2="780" y2="355" stroke="#16a34a" stroke-width="1.8" marker-end="url(#m-green)"/>
+<text x="700.0" y="347" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#334155" text-anchor="middle" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">HTTP NDJSON</text>
+<line x1="780" y1="395" x2="930" y2="395" stroke="#16a34a" stroke-width="1.8" marker-end="url(#m-green)"/>
+<text x="855.0" y="387" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#334155" text-anchor="middle" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">trace / 日志</text>
+<line x1="930" y1="425" x2="780" y2="425" stroke="#64748b" stroke-width="1.8" stroke-dasharray="5 4" marker-end="url(#m-gray)"/>
+<text x="855.0" y="417" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#334155" text-anchor="middle" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">按 request_id 查询</text>
+<rect x="30" y="460" width="940" height="30" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="48" y="480" font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC',sans-serif" font-size="12" font-weight="normal" fill="#334155" text-anchor="start">后端不新建 trace：把上游 Span 作为父节点；解析失败才降级为新根 trace，业务请求不被拒绝。</text>
+</svg>

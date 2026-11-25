@@ -31,6 +31,11 @@
 
 **进程与故障注入点**：
 
+![faultlab 进程拓扑与故障注入点](../diagrams/faultlab-topology.svg)
+
+<details>
+<summary>Mermaid 源码（可编辑）</summary>
+
 ```mermaid
 flowchart LR
   DR["driver<br/>压测客户端"] -->|"HTTP"| GW["gateway"]
@@ -46,6 +51,8 @@ flowchart LR
   AG -->|"WAL + HTTP NDJSON"| SV["vmon-server"]
   SV --> OUT["Web UI / 诊断 / 证据包"]
 ```
+
+</details>
 
 **以 `slow` 为例的调用时序**（超时 + 重试放大）：
 

@@ -17,6 +17,11 @@ Server 按 `run_id + iteration_id` 拼接出跨进程血缘图，并跑四道前
 
 **7 个进程 + 四道闸门 + 根因分析**：
 
+![industrial 工业闭环原理框架](../diagrams/industrial-framework.svg)
+
+<details>
+<summary>Mermaid 源码（可编辑）</summary>
+
 ```mermaid
 flowchart TB
   subgraph P["7 个业务进程"]
@@ -49,6 +54,8 @@ flowchart TB
   D --> RCA
   RCA --> UI["Web：血缘图 + 调用链"]
 ```
+
+</details>
 
 **数据血缘如何跨进程传递**（以身份错位为例）：
 

@@ -19,6 +19,11 @@ Python / 浏览器客户端。
 
 ## 1.1 原理流程
 
+![http_backend 跨语言链路时序](../diagrams/http-backend-sequence.svg)
+
+<details>
+<summary>Mermaid 源码（可编辑）</summary>
+
 ```mermaid
 sequenceDiagram
   participant P as Python / 浏览器
@@ -33,6 +38,8 @@ sequenceDiagram
   A-->>S: HTTP NDJSON
   S-->>P: Web 查询同一条 trace
 ```
+
+</details>
 
 关键点：后端**不新建 trace**，而是把上游 Span 作为父节点；解析失败时才
 降级为新的根 trace，业务请求不会被拒绝。
