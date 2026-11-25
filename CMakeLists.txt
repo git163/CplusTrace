@@ -172,6 +172,7 @@ if(VMON_BUILD_EXAMPLES)
   add_subdirectory(examples/http_backend)
   add_subdirectory(examples/multiprocess)
   add_subdirectory(examples/industrial_cpp)
+  add_subdirectory(examples/faultlab)
 endif()
 
 # ---------------------------------------------------------------- 测试

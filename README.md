@@ -23,6 +23,7 @@ C++ 系统（10–50 节点、50–200 进程），把「人工翻多机多进�
 - **数据血缘与跨进程参数溯源**：[docs/data-lineage-design.md](docs/data-lineage-design.md)
 - 工业控制闭环示例（7 进程 + 根因定位）：[examples/industrial/README.md](examples/industrial/README.md)
 - 同上 C++ 版（走真实 SDK）：[examples/industrial_cpp/README.md](examples/industrial_cpp/README.md)
+- **故障注入实验室（同一二进制 + 5 类复杂故障 + 自动诊断）**：[examples/faultlab/README.md](examples/faultlab/README.md)
 - Web UI 浏览器回归记录：[docs/ui-test-report.md](docs/ui-test-report.md)
 - 生产零影响约束：[docs/production-safety.md](docs/production-safety.md)
 - 部署与运维：[docs/deployment.md](docs/deployment.md)
@@ -199,6 +200,10 @@ python3 examples/scenarios/demo.py --scenario all --keep
 
 # 三个真实进程的跨进程链路 + SVG 树图
 python3 examples/multiprocess/run_demo.py
+
+# 故障注入实验室：同一二进制的多角色 + 多故障，自动生成诊断报告
+python3 examples/faultlab/run_demo.py --scenario slow
+python3 examples/faultlab/run_demo.py --scenario all
 
 # 工业控制闭环：7 进程 + 数据血缘闸门 + 根因定位（无错误码也能定位）
 python3 examples/industrial/run_demo.py --start-server --server-bin build/vmon_server

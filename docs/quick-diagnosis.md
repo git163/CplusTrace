@@ -109,7 +109,16 @@ python3 examples/scenarios/demo.py --scenario all --keep
 脚本会启动真实 Server/Agent/HTTP 后端、造出对应场景，并打印 trace_id、
 `request_id`、看点和 CLI 命令。`--keep` 保留栈，便于打开 Web UI。
 
-详细场景说明见 [scenario-cookbook.md](scenario-cookbook.md)。
+复杂故障（多进程超时重试、错误码传播、锁等待、日志风暴、崩溃）用故障注入
+实验室，一条命令跑完并自动生成诊断报告：
+
+```bash
+python3 examples/faultlab/run_demo.py --scenario slow
+python3 examples/faultlab/run_demo.py --scenario all
+```
+
+详细场景说明见 [scenario-cookbook.md](scenario-cookbook.md) 与
+[../examples/faultlab/README.md](../examples/faultlab/README.md)。
 
 ## 5. 使用边界
 

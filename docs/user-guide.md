@@ -41,6 +41,10 @@ PORT=19428 VMON_HOME=/tmp/vmon ./scripts/vmon.sh up
 
 # 常用场景：RPC / 慢调用 / 错误 / 日志风暴 / SLO / 崩溃
 python3 examples/scenarios/demo.py --scenario all --keep
+
+# 复杂故障注入：同一二进制的多角色 + 多故障 + 自动诊断报告
+python3 examples/faultlab/run_demo.py --scenario slow
+python3 examples/faultlab/run_demo.py --scenario all
 ```
 
 `--keep` 会保留栈，脚本打印 Web UI 地址、trace_id、request_id 和

@@ -180,7 +180,35 @@ python3 examples/scenarios/demo.py --scenario all --keep
 
 适合演示或验收：一条命令依次跑完，最后保留栈，按打印的 Web 地址逐页看。
 
-## 9. 手工造数据（不用 demo 脚本）
+## 9. 故障注入实验室：复杂故障的自动诊断
+
+`examples/faultlab` 用**同一个二进制**扮演 `gateway / order / inventory /
+payment / worker / driver` 六种角色，通过 `--fault` 注入五类故障，跑完自动
+查询 Server API 并生成诊断报告。
+
+```bash
+python3 examples/faultlab/run_demo.py --scenario slow
+python3 examples/faultlab/run_demo.py --scenario payment --keep
+python3 examples/faultlab/run_demo.py --scenario lockwait
+python3 examples/faultlab/run_demo.py --scenario logstorm
+python3 examples/faultlab/run_demo.py --scenario crash
+python3 examples/faultlab/run_demo.py --scenario all
+```
+
+| 场景 | 注入 | 预期诊断结论 | 关键证据 |
+|---|---|---|---|
+| `none` | 无 | `evidence_insufficient` | 正常链路，作对照 |
+| `slow` | inventory 700ms；order 350ms 超时 ×3 重试 | `downstream_timeout` | 3 个重试 Span、关键路径、最慢 Span |
+| `payment` | payment 每 3 次拒绝一次 | `business_error` | 错误码跨 3 个服务的 `sample_path` |
+| `lockwait` | order 持锁 2500ms，4 并发 | `lock_contention` | 线程时间线长空档、`lock wait` 日志 |
+| `logstorm` | 300 INFO + 10 ERROR/请求 | `business_error` | 模板聚类、去重计数 |
+| `crash` | worker 空指针 → SIGSEGV | 崩溃记录 | 退出码 139、`/api/crashes`、巡检 fail |
+
+每个场景的报告包含：请求成功率、Span 树、首个错误、最慢 Span、关键路径、
+错误码传播、日志聚类、一键诊断、崩溃记录、证据包与复现命令。
+完整说明见 [../examples/faultlab/README.md](../examples/faultlab/README.md)。
+
+## 10. 手工造数据（不用 demo 脚本）
 
 ```bash
 # 启动栈

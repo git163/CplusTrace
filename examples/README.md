@@ -6,12 +6,16 @@
 
 ## 1. 目录
 
-| 示例 | 作用 | 入口 |
-|---|---|---|
-| `hello/` | 最小业务接入：多阶段 Span、日志、错误码、两个请求对比 | `examples/hello/run_demo.sh` |
-| `http_backend/` | 接收 Python/Web 调用的 C++ HTTP 后端，续接 traceparent | `./build/examples/http_backend/vmon_http_backend` |
-| `scenarios/` | 常用场景一键演示：RPC、慢调用、错误、日志风暴、SLO、崩溃 | `examples/scenarios/demo.py` |
-| `multiprocess/` | 三个真实进程 Gateway→Order→Inventory，还原并绘制 Span 树 | `examples/multiprocess/run_demo.py` |
+| 示例 | 作用 | 入口 | 详细文档 |
+|---|---|---|---|
+| `hello/` | 最小业务接入：多阶段 Span、日志、错误码、两个请求对比 | `examples/hello/run_demo.sh` | [README](hello/README.md) |
+| `http_backend/` | 接收 Python/Web 调用的 C++ HTTP 后端，续接 traceparent | `./build/examples/http_backend/vmon_http_backend` | [README](http_backend/README.md) |
+| `scenarios/` | 常用场景一键演示：RPC、慢调用、错误、日志风暴、SLO、崩溃 | `examples/scenarios/demo.py` | [README](scenarios/README.md) |
+| `multiprocess/` | 三个真实进程 Gateway→Order→Inventory，还原并绘制 Span 树 | `examples/multiprocess/run_demo.py` | [README](multiprocess/README.md) |
+| `industrial/` | 工业控制闭环（Python 版）：7 进程 + 数据血缘 + 根因定位 | `examples/industrial/run_demo.py` | [README](industrial/README.md) |
+| `industrial_cpp/` | 同上 C++ 版：走真实 SDK → Agent → Server | `examples/industrial_cpp/run_demo.py` | [README](industrial_cpp/README.md) |
+| `faultlab/` | **同一二进制的 5 类复杂故障 + 自动诊断报告**（超时/错误码/锁等待/日志风暴/崩溃） | `examples/faultlab/run_demo.py` | [README](faultlab/README.md) |
+| `screenshots/` | Web UI 截图素材（非可运行示例） | — | — |
 
 ## 2. 三分钟跑通
 
@@ -35,6 +39,10 @@ DEMO_KEEP=1 ./examples/hello/run_demo.sh
 ```bash
 # 示例 3：常用场景（自动起 Server + Agent + HTTP 后端）
 python3 examples/scenarios/demo.py --scenario all --keep
+
+# 示例 4：故障注入实验室（一个二进制、多角色、多故障，自动生成诊断报告）
+python3 examples/faultlab/run_demo.py --scenario slow
+python3 examples/faultlab/run_demo.py --scenario all
 ```
 
 `--keep` 会保留进程与临时目录，脚本会打印 Web UI 地址、trace_id、
@@ -179,6 +187,25 @@ python3 examples/scenarios/demo.py --scenario all --keep
 ```
 
 每个场景会打印 trace_id、request_id、看点与 CLI 命令。
+
+### 4.4 faultlab：同一二进制的复杂故障与自动诊断
+
+`faultlab` 用**一个二进制**扮演 `gateway / order / inventory / payment /
+worker / driver` 六种角色，通过 `--fault` 注入五类故障，并自动查询 Server
+API 生成「现象 → 证据 → 诊断 → 建议 → 证据包」报告：
+
+```bash
+python3 examples/faultlab/run_demo.py --scenario slow       # 下游超时 + 重试
+python3 examples/faultlab/run_demo.py --scenario payment    # 错误码跨服务传播
+python3 examples/faultlab/run_demo.py --scenario lockwait   # 锁等待/线程阻塞
+python3 examples/faultlab/run_demo.py --scenario logstorm   # 日志风暴/队列过载
+python3 examples/faultlab/run_demo.py --scenario crash      # SIGSEGV 崩溃
+python3 examples/faultlab/run_demo.py --scenario all        # 全部场景
+```
+
+每个场景结束后会打印诊断结论（`downstream_timeout` / `business_error` /
+`lock_contention` 等）与证据包，并写入 `report-<场景>.md`。完整说明见
+[faultlab/README.md](faultlab/README.md)。
 
 ## 5. 手动验证新能力
 
