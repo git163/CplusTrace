@@ -17,6 +17,26 @@
 它通常作为 [scenarios](../scenarios/README.md) 里的后端，也可以单独接入
 Python / 浏览器客户端。
 
+## 1.1 原理流程
+
+```mermaid
+sequenceDiagram
+  participant P as Python / 浏览器
+  participant B as BFF（可选）
+  participant H as vmon_http_backend
+  participant A as vmon-agent
+  participant S as vmon-server
+  P->>B: HTTP + traceparent + x-request-id
+  B->>H: 转发同一 traceparent
+  H->>H: context_from_traceparent → HTTP/echo Span
+  H-->>A: SDK 事件（UDS）
+  A-->>S: HTTP NDJSON
+  S-->>P: Web 查询同一条 trace
+```
+
+关键点：后端**不新建 trace**，而是把上游 Span 作为父节点；解析失败时才
+降级为新的根 trace，业务请求不会被拒绝。
+
 ## 2. 文件与构建
 
 | 文件 | 作用 |

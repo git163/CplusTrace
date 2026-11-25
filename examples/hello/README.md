@@ -32,6 +32,36 @@ Gateway/Handle
 - **错误码**：首个错误、错误传播、一键诊断都有素材；
 - **fail-open**：Agent 不在线时业务照常运行，只是没有维测数据。
 
+## 1.1 原理流程
+
+**采集链路**：业务线程只写线程本地环，后台线程批量发送，不阻塞业务。
+
+```mermaid
+sequenceDiagram
+  participant B as vmon_hello
+  participant R as SDK 线程本地环
+  participant A as vmon-agent
+  participant S as vmon-server
+  participant W as Web UI
+  B->>R: Span / 日志事件（不分配、不加锁）
+  R-->>A: 后台批量 UDS JSONL
+  A-->>S: HTTP NDJSON（失败进 WAL）
+  S-->>W: trace / 日志 / 诊断
+  W->>S: 按 request_id 查询
+```
+
+**Span 树**：失败请求会跳过支付，根 Span 标记 `E_ORDER_FAILED`。
+
+```mermaid
+flowchart TD
+  G["Gateway/Handle"] --> A["Auth/Verify"]
+  G --> O["Order/Parse"]
+  G --> I["Inventory/Reserve"]
+  I --> C["Cache/Get"]
+  G --> P["Payment/Charge（仅成功请求）"]
+  G --> R["Response/Build"]
+```
+
 ## 2. 文件
 
 | 文件 | 作用 |

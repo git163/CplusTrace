@@ -4,6 +4,31 @@
 > 更完整的排障方法见 [docs/quick-diagnosis.md](../docs/quick-diagnosis.md)，
 > 场景说明见 [docs/scenario-cookbook.md](../docs/scenario-cookbook.md)。
 
+## 0. 全景
+
+**学习路径**（从最小示例到复杂故障）：
+
+```mermaid
+flowchart LR
+  H["hello<br/>最小接入"] --> HB["http_backend<br/>跨语言续接"]
+  H --> MP["multiprocess<br/>多进程链路"]
+  MP --> IND["industrial<br/>工业闭环 + 血缘"]
+  IND --> FL["faultlab<br/>复杂故障注入"]
+  H -.-> SC["scenarios<br/>常用场景"]
+  SC -.-> FL
+```
+
+**数据流**（所有示例共用同一条采集链路）：
+
+```mermaid
+flowchart LR
+  BIZ["业务进程<br/>（链接 SDK）"] -->|"UDS JSONL"| AG["vmon-agent<br/>WAL / 采集 / 控制"]
+  AG -->|"HTTP NDJSON"| SV["vmon-server<br/>存储 / 还原 / 诊断"]
+  SV --> UI["Web UI"]
+  SV --> CLI["vmonctl / MCP"]
+  SV --> EV["证据包 / 告警"]
+```
+
 ## 1. 目录
 
 | 示例 | 作用 | 入口 | 详细文档 |

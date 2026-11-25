@@ -31,6 +31,23 @@ python3 examples/scenarios/demo.py --scenario all --keep
 4. 轮询 Server API，打印 trace、日志、诊断结果；
 5. `--keep` 时保留进程与临时目录，打印 Web UI 地址。
 
+## 1.1 运行框架
+
+```mermaid
+flowchart LR
+  D["demo.py"] -->|启动| SV["vmon_server"]
+  D -->|启动| AG["vmon_agent"]
+  D -->|启动| BE["vmon_http_backend"]
+  D -->|Python Client 造请求| BE
+  BE -->|"SDK → UDS"| AG
+  AG -->|"HTTP NDJSON"| SV
+  D -->|轮询 API| SV
+  SV --> W["Web UI"]
+```
+
+`demo.py` 同时扮演「编排者」和「客户端」：它启动栈、发请求、等数据稳定，
+最后把查询结果打印出来。`--keep` 只是把清理步骤推迟到 Ctrl+C。
+
 ## 2. 场景清单
 
 | 场景 | 命令 | 重点 | 预期 |

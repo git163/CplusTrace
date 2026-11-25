@@ -13,6 +13,61 @@
 每个进程都会把 **span / 血缘（值指纹）/ 设备状态** 事件发到 `vmon-server`，
 Server 按 `run_id + iteration_id` 拼接出跨进程血缘图，并跑四道前置闸门。
 
+## 0. 原理框架
+
+**7 个进程 + 四道闸门 + 根因分析**：
+
+```mermaid
+flowchart TB
+  subgraph P["7 个业务进程"]
+    OR["job-orchestrator"]
+    MO["motion-controller"]
+    AC["acq-controller"]
+    RC["data-receiver"]
+    AL["algo-controller"]
+    CA["calib-service"]
+    ST["state-store"]
+  end
+  OR -->|"HTTP + traceparent"| MO
+  OR --> AC
+  OR --> RC
+  OR --> AL
+  OR --> CA
+  OR --> ST
+
+  MO -. "settle_time_ns" .-> G3["G3 时序闸门"]
+  AC -. "frame_id" .-> G2["G2 身份闸门"]
+  RC -. "requested / used_frame_id" .-> G2
+  AL -. "offset" .-> D["值差分检测"]
+  OR -. "设备状态" .-> G0["G0 状态闸门"]
+  OR -. "触发 / 收帧 / 处理计数" .-> G1["G1 计数闸门"]
+
+  G0 --> RCA["RCA 根因分析"]
+  G1 --> RCA
+  G2 --> RCA
+  G3 --> RCA
+  D --> RCA
+  RCA --> UI["Web：血缘图 + 调用链"]
+```
+
+**数据血缘如何跨进程传递**（以身份错位为例）：
+
+```mermaid
+sequenceDiagram
+  participant AC as acq-controller
+  participant RC as data-receiver
+  participant AL as algo-controller
+  participant SV as vmon-server
+  AC->>RC: requested_frame_id=42
+  RC-->>AL: used_frame_id=41（按最新帧取错）
+  AL-->>AL: 基于旧帧计算 offset
+  AC-->>SV: frame_id=42（血缘事件）
+  RC-->>SV: requested=42 / used=41
+  AL-->>SV: used_frame_id=41 / offset
+  SV->>SV: 值指纹串联 + G2 命中
+  SV-->>SV: RCA：data-receiver 取帧逻辑错误
+```
+
 ---
 
 ## 1. 先编译

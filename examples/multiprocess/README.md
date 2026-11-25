@@ -11,6 +11,24 @@ Gateway（根 Span）
 三个进程都链接静态 SDK，通过 HTTP 头传播 W3C `traceparent`；Server 根据
 `trace_id/span_id/parent` 还原整棵树。
 
+## 原理流程
+
+```mermaid
+sequenceDiagram
+  participant G as Gateway
+  participant O as Order
+  participant I as Inventory
+  G->>O: POST /call（traceparent）
+  O->>I: POST /call（traceparent）
+  I-->>O: 200 + E_STOCK
+  O-->>G: 200 + E_ORDER_DOWNSTREAM
+  G-->>G: 根 Span 标记 E_GATEWAY
+  Note over G,I: 三个进程都把 Span/日志发往 Agent → Server
+```
+
+Server 按 `trace_id` 聚合三个进程的事件，按 `parent_span_id` 建树；
+错误码从最深的 `Inventory/Check` 逐层向上传播。
+
 ## 运行
 
 ```bash

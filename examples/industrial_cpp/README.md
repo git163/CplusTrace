@@ -3,6 +3,25 @@
 与 [Python 版](../industrial/README.md) 行为一致，但每个进程都**链接 vmon SDK**，
 事件经 `SDK → Agent(UDS) → Server`，演示真实业务进程的接入形态。
 
+## 0. 原理框架
+
+```mermaid
+flowchart LR
+  subgraph P["7 个 C++ 进程"]
+    OR["orchestrator"]
+    CT["motion / acq / receiver / algo / calib / store"]
+  end
+  OR -->|"HTTP + traceparent"| CT
+  OR -->|"SDK 事件"| AG["vmon-agent"]
+  CT -->|"SDK 事件"| AG
+  AG -->|"WAL + HTTP NDJSON"| SV["vmon-server"]
+  SV --> API["血缘 / 闸门 / RCA API"]
+  SV --> UI["Web：血缘图 + 调用链"]
+```
+
+与 Python 版的关键差异：埋点发生在业务进程内（`VMON_FIELD_*` / `VMON_STATE`），
+事件先落 Agent WAL，再由 Agent 批量上传；业务线程不参与网络 IO。
+
 ## 1. 编译
 
 ```bash

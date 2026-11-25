@@ -29,18 +29,40 @@
 
 ## 2. 架构
 
+**进程与故障注入点**：
+
+```mermaid
+flowchart LR
+  DR["driver<br/>压测客户端"] -->|"HTTP"| GW["gateway"]
+  GW -->|"HTTP + traceparent"| OR["order"]
+  OR -->|"重试 3 次"| IN["inventory<br/>慢响应 / 日志风暴 / 503"]
+  OR -->|"业务调用"| PA["payment<br/>业务拒绝"]
+  WK["worker<br/>后台任务"] -.->|"crash 注入"| SIG["SIGSEGV"]
+  GW -->|"SDK UDS"| AG["vmon-agent"]
+  OR --> AG
+  IN --> AG
+  PA --> AG
+  WK --> AG
+  AG -->|"WAL + HTTP NDJSON"| SV["vmon-server"]
+  SV --> OUT["Web UI / 诊断 / 证据包"]
 ```
-driver (HTTP 压测)
-   │
-   ▼
-gateway ──HTTP traceparent──▶ order ──┬──▶ inventory   (慢响应 / 日志风暴 / 503)
-   │                                   └──▶ payment     (业务拒绝)
-   │
-   └── 返回 200 / 502 / 504
 
-worker (后台任务，独立进程) ── 崩溃注入 ──▶ SIGSEGV
+**以 `slow` 为例的调用时序**（超时 + 重试放大）：
 
-所有进程: SDK ──UDS JSONL──▶ vmon-agent ──HTTP──▶ vmon-server ──▶ Web/CLI/MCP
+```mermaid
+sequenceDiagram
+  participant D as driver
+  participant G as gateway
+  participant O as order
+  participant I as inventory
+  D->>G: POST /api/checkout
+  G->>O: /api/order（traceparent）
+  loop 重试 3 次
+    O->>I: /api/reserve（等 350ms）
+    I--xO: 700ms 后才返回 → 客户端已超时
+  end
+  O-->>G: E_INVENTORY_TIMEOUT
+  G-->>D: 504 E_ORDER_TIMEOUT
 ```
 
 - 进程内 Span：`Gateway/Checkout` → `Order/Create` → `Inventory/Reserve`、
